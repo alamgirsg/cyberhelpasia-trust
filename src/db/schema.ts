@@ -27,9 +27,25 @@ export const users = pgTable(
     email: text("email").notNull(),
     name: text("name").notNull(),
     passwordHash: text("password_hash").notNull(),
+    /** AES-256-GCM encrypted TOTP secret (see src/lib/crypto.ts). Null until enrolment starts. */
+    mfaSecretEnc: text("mfa_secret_enc"),
+    mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true }),
+    /** Last accepted TOTP time-step, to block code replay. */
+    mfaLastStep: integer("mfa_last_step"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("users_email_uq").on(t.email)],
+);
+
+export const mfaRecoveryCodes = pgTable(
+  "mfa_recovery_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+  },
+  (t) => [index("recovery_user_idx").on(t.userId)],
 );
 
 export const ROLES = ["owner", "admin", "contributor", "viewer"] as const;
@@ -45,6 +61,23 @@ export const memberships = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("memberships_tenant_user_uq").on(t.tenantId, t.userId)],
+);
+
+export const invites = pgTable(
+  "invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role").$type<Role>().notNull(),
+    tokenHash: text("token_hash").notNull(),
+    invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("invites_token_uq").on(t.tokenHash), index("invites_tenant_idx").on(t.tenantId)],
 );
 
 // ---------- Framework library (global, not tenant-scoped) ----------

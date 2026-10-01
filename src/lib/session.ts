@@ -28,6 +28,7 @@ export async function verifySession(token: string | undefined): Promise<SessionP
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
+    if (payload.purpose !== undefined) return null; // an MFA-pending token is not a session
     if (typeof payload.uid !== "string" || typeof payload.tid !== "string") return null;
     return { uid: payload.uid, tid: payload.tid };
   } catch {
@@ -42,3 +43,29 @@ export const sessionCookieOptions = {
   path: "/",
   maxAge: MAX_AGE_SECONDS,
 };
+
+// ---- Pending second factor: password checked, TOTP not yet ----
+
+export const MFA_PENDING_COOKIE = "cha_mfa_pending";
+const MFA_PENDING_SECONDS = 5 * 60;
+
+export async function signMfaPending(p: SessionPayload): Promise<string> {
+  return new SignJWT({ ...p, purpose: "mfa" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${MFA_PENDING_SECONDS}s`)
+    .sign(secret());
+}
+
+export async function verifyMfaPending(token: string | undefined): Promise<SessionPayload | null> {
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
+    if (payload.purpose !== "mfa" || typeof payload.uid !== "string" || typeof payload.tid !== "string") return null;
+    return { uid: payload.uid, tid: payload.tid };
+  } catch {
+    return null;
+  }
+}
+
+export const mfaPendingCookieOptions = { ...sessionCookieOptions, maxAge: MFA_PENDING_SECONDS };
