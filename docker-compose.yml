@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trust
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: trust
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trust"]
+      interval: 5s
+      retries: 10
+
+  # One-off: applies migrations and seeds the control library, then exits.
+  migrate:
+    build: { context: ., target: build }
+    command: npm run db:setup
+    environment:
+      DATABASE_URL: postgres://trust:${POSTGRES_PASSWORD}@db:5432/trust
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  app:
+    build: { context: ., target: runtime }
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://trust:${POSTGRES_PASSWORD}@db:5432/trust
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads:/app/uploads
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+volumes:
+  pgdata:
+  uploads:

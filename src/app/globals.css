@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0e1726;
+  --color-ink-2: #3b4658;
+  --color-muted: #6b7486;
+  --color-line: #e3e7ee;
+  --color-paper: #f6f7f9;
+  --color-brand: #0b3d6b;
+  --color-brand-2: #0f6aa8;
+  --color-accent: #0f8f7e;
+  --color-warn: #b7791f;
+  --color-bad: #b42318;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+  color: var(--color-ink);
+  background: var(--color-paper);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.card {
+  @apply rounded-xl border border-line bg-white;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 bg-brand text-white hover:bg-brand-2;
+}
+
+.btn-ghost {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 border border-line bg-white text-ink hover:bg-paper;
+}
+
+.input {
+  @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-brand-2 focus:ring-2 focus:ring-brand-2/20;
+}
+
+.label {
+  @apply mb-1 block text-sm font-medium text-ink-2;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  html,
+  body {
+    background: white;
+  }
+}
