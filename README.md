@@ -52,25 +52,55 @@ With `DATABASE_URL` empty the app uses an embedded PGlite database in `./.data` 
 
 ## Deploy on the VPS with Docker
 
+The stack (app + PostgreSQL + one-off migrate job) uses the fixed Compose project name `cyberhelpasia-trust`,
+so its containers and volumes never clash with other sites on the same server. PostgreSQL is not exposed; the
+app listens on `127.0.0.1:${APP_PORT:-3010}`.
+
 ```bash
-cat > .env <<EOF
-POSTGRES_PASSWORD=$(openssl rand -hex 24)
-SESSION_SECRET=$(openssl rand -base64 48)
-MFA_ENC_KEY=$(openssl rand -base64 48)
-ANTHROPIC_API_KEY=            # optional: paste your key here on the server, never in chat or git
-EOF
+git clone https://github.com/alamgirsg/cyberhelpasia-trust /opt/cyberhelpasia-trust
+cd /opt/cyberhelpasia-trust
+umask 077
+{
+  echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
+  echo "SESSION_SECRET=$(openssl rand -base64 48 | tr -d '\n')"
+  echo "MFA_ENC_KEY=$(openssl rand -base64 48 | tr -d '\n')"
+  echo "APP_PORT=3010"
+  echo "ANTHROPIC_API_KEY="
+} > .env
 docker compose up -d --build
 ```
 
-The app listens on `127.0.0.1:3000`; put Caddy or Nginx in front for HTTPS, e.g. with Caddy:
+Add your Anthropic key to `.env` on the server only (never in chat or git). Back up `.env` somewhere safe:
+losing `MFA_ENC_KEY` means every user must set up two-step verification again.
+
+### HTTPS with the Caddy that already runs on the VPS
+
+**Caddy installed on the host:** add a site block and reload Caddy.
 
 ```
 trust.cyberhelpasia.com {
-  reverse_proxy 127.0.0.1:3000
+  reverse_proxy 127.0.0.1:3010
 }
 ```
 
-For production customer data, host in a Singapore region (see the PRD).
+**Caddy running in Docker:** attach the app to Caddy's network, then proxy to the alias `trust-app`.
+
+```bash
+echo "CADDY_NETWORK=<caddy network name>" >> .env
+docker compose -f docker-compose.yml -f docker-compose.caddy-network.yml up -d
+```
+
+```
+trust.cyberhelpasia.com {
+  reverse_proxy trust-app:3000
+}
+```
+
+DNS: add an `A` record `trust` → the VPS IP address in the DNS zone of `cyberhelpasia.com`. Caddy obtains the
+certificate automatically once the name resolves.
+
+Update: `git pull && docker compose up -d --build` (migrations run automatically). For production customer data,
+host in a Singapore region (see the PRD).
 
 ## Project layout
 

@@ -1,3 +1,7 @@
+# Fixed project name: containers, networks and volumes are prefixed "cyberhelpasia-trust-",
+# so they never collide with other Docker sites on the same VPS.
+name: cyberhelpasia-trust
+
 services:
   db:
     image: postgres:16-alpine
@@ -12,6 +16,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U trust"]
       interval: 5s
       retries: 10
+    # No ports published: the database is reachable only from this project's network.
 
   # One-off: applies migrations and seeds the control library, then exits.
   migrate:
@@ -35,10 +40,16 @@ services:
       UPLOAD_DIR: /app/uploads
     volumes:
       - uploads:/app/uploads
+    # Loopback only. APP_PORT defaults to 3010 so it does not clash with other apps on 3000.
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${APP_PORT:-3010}:3000"
     depends_on:
       migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/login || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:

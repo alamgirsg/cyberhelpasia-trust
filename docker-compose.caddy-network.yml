@@ -1,0 +1,17 @@
+# Use this override when the VPS already runs Caddy (or another proxy) inside Docker.
+# It attaches the app to that proxy's Docker network so the proxy can reach it as
+# "trust-app:3000". Set CADDY_NETWORK in .env to the proxy's network name
+# (find it with: docker inspect <caddy-container> --format '{{json .NetworkSettings.Networks}}').
+#
+#   docker compose -f docker-compose.yml -f docker-compose.caddy-network.yml up -d --build
+services:
+  app:
+    networks:
+      default: {}
+      proxy:
+        aliases: [trust-app]
+
+networks:
+  proxy:
+    external: true
+    name: ${CADDY_NETWORK:?set CADDY_NETWORK in .env}
