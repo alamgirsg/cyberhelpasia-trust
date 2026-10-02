@@ -71,7 +71,7 @@ export default async function TeamPage() {
                   <td className="p-3">{m.mfa ? <Badge kind="met">On</Badge> : <Badge kind="not_started">Off</Badge>}</td>
                   <td className="p-3">
                     {editable ? (
-                      <form action={changeRole} className="flex items-center gap-2">
+                      <form key={m.role} action={changeRole} className="flex items-center gap-2">
                         <input type="hidden" name="membershipId" value={m.id} />
                         <select name="role" defaultValue={m.role} className="input w-auto py-1" aria-label={`Role for ${m.name}`}>
                           {grantable.map((r) => <option key={r} value={r}>{r}</option>)}

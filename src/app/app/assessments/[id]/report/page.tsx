@@ -16,7 +16,10 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
 
   return (
     <article className="mx-auto max-w-3xl bg-white p-8 text-sm print:p-0">
-      <div className="no-print mb-6 flex justify-end"><PrintButton /></div>
+      <div className="no-print mb-6 flex justify-end gap-2">
+        <a href={`/api/assessments/${id}/export`} className="btn-ghost" download>Download auditor pack (ZIP)</a>
+        <PrintButton />
+      </div>
       <header className="border-b border-line pb-4">
         <p className="text-xs uppercase tracking-wider text-muted">Readiness report · CyberHELP Asia Trust Platform</p>
         <h1 className="mt-1 text-2xl font-bold">{ctx.tenantName}</h1>

@@ -67,7 +67,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                 <Badge kind={t.status}>{LABEL[t.status]}</Badge>
               </div>
               {canWrite && (
-                <form action={updateTask} className="mt-3 flex flex-wrap items-center gap-2">
+                <form key={`${t.status}-${t.priority}-${t.dueDate ?? ""}`} action={updateTask} className="mt-3 flex flex-wrap items-center gap-2">
                   <input type="hidden" name="taskId" value={t.id} />
                   <select name="status" defaultValue={t.status} className="input w-auto" aria-label="Status">
                     {TASK_STATUSES.map((s) => <option key={s} value={s}>{LABEL[s]}</option>)}

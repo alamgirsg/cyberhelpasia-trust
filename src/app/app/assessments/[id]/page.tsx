@@ -30,6 +30,7 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
         action={
           <div className="flex gap-2">
             <Link href={`/app/assessments/${id}/report`} className="btn-ghost">Readiness report</Link>
+            <a href={`/api/assessments/${id}/export`} className="btn-primary" download>Download auditor pack</a>
           </div>
         }
       />
@@ -78,7 +79,7 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
                       <p className="mt-2"><span className="font-medium">Evidence auditors look for:</span> <span className="text-ink-2">{c.evidenceHint}</span></p>
                       {c.isoRefs && <p className="mt-1 text-xs text-muted">ISO/IEC 27001:2022 (indicative): {c.isoRefs}</p>}
                       {canWrite ? (
-                        <form action={saveResponse} className="mt-4 grid gap-3 sm:grid-cols-[200px_1fr_auto] sm:items-start">
+                        <form key={`${c.status}-${c.updatedAt?.getTime() ?? 0}`} action={saveResponse} className="mt-4 grid gap-3 sm:grid-cols-[200px_1fr_auto] sm:items-start">
                           <input type="hidden" name="assessmentId" value={id} />
                           <input type="hidden" name="controlId" value={c.controlId} />
                           <select name="status" defaultValue={c.status} className="input" aria-label="Status">

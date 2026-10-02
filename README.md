@@ -22,6 +22,7 @@ One platform, two modules, built for the Singapore market:
 | Evidence vault: type allowlist, 10 MB limit, SHA-256 hash, tenant-checked download | ✅ |
 | Readiness score overall and by domain; dashboard shows weakest domains | ✅ |
 | Printable readiness report (save as PDF from the browser) | ✅ |
+| Auditor pack ZIP: report, controls/tasks/activity CSVs, evidence by control, SHA-256 manifest with tamper check | ✅ |
 | Activity log of logins, answers, task changes, uploads and downloads | ✅ |
 | Roles: owner / admin / contributor / viewer (viewer is read-only) | ✅ |
 
@@ -88,17 +89,18 @@ scripts/                    migrate + seed
 - After the password step, a 5-minute "MFA pending" token is issued; it cannot be used as a session.
 - Rate limits are in memory (one app instance). Move them to Redis before running several instances.
 - Invite links are shown to the admin to send; email delivery is a later step.
+- Auditor pack: every evidence file is re-hashed on export and compared with the hash taken at upload; mismatches are flagged
+  in the manifest, README and report. CSV cells starting with = + - @ are prefixed with ' to block formula injection.
 - Evidence files are stored under random names (never the client file name) with mode 0600.
 - Security headers: X-Frame-Options DENY, nosniff, strict referrer policy.
 
 ## Next steps
 
 1. Email delivery for invites and security alerts
-2. AI policy generator with human approval
-3. Auditor pack ZIP export (report + evidence)
-4. PostgreSQL row-level security as a second isolation layer
-5. S3-compatible evidence storage (Singapore region)
-6. Module 2: AI Assurance
+2. AI policy generator with human approval (needs the LLM provider decision)
+3. PostgreSQL row-level security as a second isolation layer
+4. S3-compatible evidence storage (Singapore region)
+5. Module 2: AI Assurance
 
 ## Tests
 
@@ -108,9 +110,12 @@ Playwright (Python) end-to-end tests:
   report, activity log, tenant isolation, login/logout.
 - `tests/e2e_team_mfa.py` (19 checks): MFA enrolment, TOTP login, replay rejection, single-use recovery codes, invites,
   roles, viewer read-only, last-owner protection, joining a second workspace with MFA, workspace switching.
+- `tests/e2e_export.py` (10 checks): auditor pack contents, duplicate file names, formula-injection guard, tamper detection,
+  activity log entry, 401/404 isolation. Needs the same `UPLOAD_DIR` as the server.
 
 ```bash
 pip install playwright && playwright install chromium
 BASE=http://localhost:3000 python tests/e2e_smoke.py
 BASE=http://localhost:3000 python tests/e2e_team_mfa.py
+BASE=http://localhost:3000 UPLOAD_DIR=./uploads python tests/e2e_export.py
 ```
