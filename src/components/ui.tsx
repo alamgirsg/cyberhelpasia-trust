@@ -65,7 +65,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 export function Badge({ kind, children }: { kind: string; children: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[kind] ?? STATUS_STYLE.na}`}>
+    <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[kind] ?? STATUS_STYLE.na}`}>
       {children}
     </span>
   );

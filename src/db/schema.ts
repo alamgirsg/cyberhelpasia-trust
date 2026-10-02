@@ -6,6 +6,7 @@ import {
   integer,
   jsonb,
   date,
+  boolean,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
@@ -17,6 +18,8 @@ export const tenants = pgTable("tenants", {
   name: text("name").notNull(),
   uen: text("uen"),
   plan: text("plan").notNull().default("trial"),
+  /** Opt-in: when false, policy drafts come from built-in templates and nothing is sent to an AI provider. */
+  aiEnabled: boolean("ai_enabled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -185,6 +188,41 @@ export const evidence = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("evidence_tenant_idx").on(t.tenantId)],
+);
+
+// ---------- Policies ----------
+
+export const POLICY_STATUSES = ["draft", "approved", "superseded"] as const;
+export type PolicyStatus = (typeof POLICY_STATUSES)[number];
+
+export const policies = pgTable(
+  "policies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    policyType: text("policy_type").notNull(),
+    title: text("title").notNull(),
+    version: integer("version").notNull(),
+    status: text("status").$type<PolicyStatus>().notNull().default("draft"),
+    content: text("content").notNull(),
+    /** "ai" or "template" */
+    source: text("source").notNull(),
+    model: text("model"),
+    inputs: jsonb("inputs").$type<Record<string, string>>(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    approvedBy: uuid("approved_by").references(() => users.id, { onDelete: "set null" }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    /** Stored copy of the approved text, so it can be filed as evidence in assessments created later. */
+    fileKey: text("file_key"),
+    fileSha256: text("file_sha256"),
+    fileSize: integer("file_size"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("policies_tenant_idx").on(t.tenantId),
+    uniqueIndex("policies_type_version_uq").on(t.tenantId, t.policyType, t.version),
+  ],
 );
 
 // ---------- Audit log ----------

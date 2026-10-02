@@ -9,6 +9,7 @@ import { Logo } from "@/components/ui";
 const nav = [
   ["/app", "Dashboard"],
   ["/app/tasks", "Remediation tasks"],
+  ["/app/policies", "Policies"],
   ["/app/evidence", "Evidence vault"],
   ["/app/audit", "Activity log"],
   ["/app/settings/security", "Settings"],

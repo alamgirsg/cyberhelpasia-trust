@@ -9,6 +9,7 @@ import { requireWriter } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { recommend, type Profile } from "@/lib/profile";
 import { RESPONSE_STATUSES, TASK_STATUSES, PRIORITIES } from "@/db/schema";
+import { policyById } from "@/content/policies";
 
 const profileSchema = z.object({
   staff: z.enum(["1-10", "11-50", "51-200", "200+"]),
@@ -42,6 +43,31 @@ export async function startAssessment(form: FormData) {
         ctrls.map((c) => ({ tenantId: ctx.tenantId, assessmentId: a.id, controlId: c.id })),
       );
     }
+    // File already-approved policies as evidence for the matching controls of this new assessment.
+    const ids = new Set(ctrls.map((c) => c.id));
+    const approved = await tx
+      .select()
+      .from(schema.policies)
+      .where(and(eq(schema.policies.tenantId, ctx.tenantId), eq(schema.policies.status, "approved")));
+    const rows = approved.flatMap((p) =>
+      !p.fileKey
+        ? []
+        : (policyById(p.policyType)?.controls ?? [])
+            .filter((c) => ids.has(c))
+            .map((controlId) => ({
+              tenantId: ctx.tenantId,
+              assessmentId: a.id,
+              controlId,
+              fileName: `${p.title.replace(/[^\w\- ]/g, "").replace(/\s+/g, "-")}-v${p.version}.md`,
+              storageKey: p.fileKey!,
+              mimeType: "text/markdown",
+              sizeBytes: p.fileSize ?? 0,
+              sha256: p.fileSha256 ?? "",
+              description: `Approved policy: ${p.title} v${p.version}`,
+              uploadedBy: p.approvedBy,
+            })),
+    );
+    if (rows.length) await tx.insert(schema.evidence).values(rows);
     return a.id;
   });
   await audit(ctx.tenantId, ctx.userId, "assessment.created", "assessment", id, { frameworkId });

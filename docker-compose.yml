@@ -30,6 +30,8 @@ services:
       DATABASE_URL: postgres://trust:${POSTGRES_PASSWORD}@db:5432/trust
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
       MFA_ENC_KEY: ${MFA_ENC_KEY:?set MFA_ENC_KEY in .env}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5-5}
       UPLOAD_DIR: /app/uploads
     volumes:
       - uploads:/app/uploads

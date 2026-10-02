@@ -15,6 +15,20 @@
       "when": 1790871724499,
       "tag": "0001_mfa_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790912771759,
+      "tag": "0002_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790913128540,
+      "tag": "0003_policy_file",
+      "breakpoints": true
     }
   ]
 }
