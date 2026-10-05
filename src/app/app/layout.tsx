@@ -48,7 +48,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
           ))}
           <div className="mx-3 my-2 hidden border-t border-line lg:block" />
-          <span className="hidden px-3 py-2 text-sm text-muted lg:block" title="Module 2 — coming soon">AI Assurance · soon</span>
+          <Link href="/app/ai" className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-ink-2 hover:bg-paper">
+            AI Assurance <span className="ml-1 rounded bg-brand-2/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-brand-2">Preview</span>
+          </Link>
         </nav>
         <div className="mt-auto hidden px-4 py-4 lg:block">
           <p className="truncate text-sm font-medium">{ctx.userName}</p>

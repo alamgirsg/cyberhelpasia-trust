@@ -17,10 +17,10 @@ async function main() {
   for (const fw of FRAMEWORKS) {
     await db
       .insert(schema.frameworks)
-      .values({ id: fw.id, name: fw.name, version: fw.version, description: fw.description })
+      .values({ id: fw.id, name: fw.name, version: fw.version, description: fw.description, refLabel: fw.refLabel ?? "ISO/IEC 27001:2022 (indicative)" })
       .onConflictDoUpdate({
         target: schema.frameworks.id,
-        set: { name: fw.name, version: fw.version, description: fw.description },
+        set: { name: fw.name, version: fw.version, description: fw.description, refLabel: fw.refLabel ?? "ISO/IEC 27001:2022 (indicative)" },
       });
 
     for (const [i, c] of fw.controls.entries()) {

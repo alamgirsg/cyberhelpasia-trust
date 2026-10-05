@@ -90,6 +90,8 @@ export const frameworks = pgTable("frameworks", {
   name: text("name").notNull(),
   version: text("version").notNull(),
   description: text("description").notNull(),
+  /** Label for controls.isoRefs in this framework, e.g. "ISO/IEC 27001:2022 (indicative)". */
+  refLabel: text("ref_label").notNull().default("ISO/IEC 27001:2022 (indicative)"),
 });
 
 export const controls = pgTable(
@@ -223,6 +225,38 @@ export const policies = pgTable(
     index("policies_tenant_idx").on(t.tenantId),
     uniqueIndex("policies_type_version_uq").on(t.tenantId, t.policyType, t.version),
   ],
+);
+
+// ---------- AI Assurance: AI system inventory ----------
+
+export const AI_STATUSES = ["proposed", "pilot", "production", "retired"] as const;
+export type AiStatus = (typeof AI_STATUSES)[number];
+export const RISK_RATINGS = ["low", "medium", "high"] as const;
+export type RiskRating = (typeof RISK_RATINGS)[number];
+
+export const aiSystems = pgTable(
+  "ai_systems",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    businessOwner: text("business_owner"),
+    vendor: text("vendor"),
+    model: text("model"),
+    status: text("status").$type<AiStatus>().notNull().default("proposed"),
+    /** Risk-factor answers (see src/lib/ai-risk.ts). */
+    factors: jsonb("factors").$type<Record<string, string>>().notNull(),
+    computedRating: text("computed_rating").$type<RiskRating>().notNull(),
+    /** A person may override the computed rating, with a written reason. */
+    overrideRating: text("override_rating").$type<RiskRating>(),
+    overrideReason: text("override_reason"),
+    lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_systems_tenant_idx").on(t.tenantId)],
 );
 
 // ---------- Audit log ----------

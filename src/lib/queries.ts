@@ -63,5 +63,6 @@ export async function getAssessment(tenantId: string, id: string) {
     .groupBy(schema.evidence.controlId);
   const evidenceCount = new Map(ev.map((e) => [e.controlId ?? "", e.n]));
 
-  return { assessment: a, items, evidenceCount, score: readiness(items) };
+  const [fw] = await db.select({ refLabel: schema.frameworks.refLabel }).from(schema.frameworks).where(eq(schema.frameworks.id, a.frameworkId)).limit(1);
+  return { assessment: a, items, evidenceCount, score: readiness(items), refLabel: fw?.refLabel ?? "References" };
 }

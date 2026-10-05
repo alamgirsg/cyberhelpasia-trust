@@ -26,6 +26,8 @@ export type FrameworkSeed = {
   name: string;
   version: string;
   description: string;
+  /** Label shown for each control's isoRefs field. */
+  refLabel?: string;
   controls: ControlSeed[];
 };
 
@@ -152,4 +154,6 @@ const ctm: FrameworkSeed = {
   })),
 };
 
-export const FRAMEWORKS: FrameworkSeed[] = [ce, ctm];
+import { aiGov } from "./ai-governance";
+
+export const FRAMEWORKS: FrameworkSeed[] = [ce, ctm, aiGov];

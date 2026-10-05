@@ -28,7 +28,7 @@ export type PackResult = { zip: Uint8Array; fileName: string; evidenceCount: num
 export async function buildAuditorPack(tenantId: string, tenantName: string, assessmentId: string, generatedBy: string): Promise<PackResult | null> {
   const data = await getAssessment(tenantId, assessmentId);
   if (!data) return null;
-  const { assessment, items, score } = data;
+  const { assessment, items, score, refLabel } = data;
   const db = await getDb();
 
   const evidence = await db
@@ -110,7 +110,7 @@ export async function buildAuditorPack(tenantId: string, tenantName: string, ass
   const generatedAt = new Date();
   files["controls.csv"] = strToU8(
     toCsv(
-      ["Control ID", "Domain", "Control", "Status", "Notes", "Last updated", "Evidence files", "ISO/IEC 27001:2022 (indicative)"],
+      ["Control ID", "Domain", "Control", "Status", "Notes", "Last updated", "Evidence files", refLabel],
       items.map((c) => [
         c.controlId,
         c.domain,

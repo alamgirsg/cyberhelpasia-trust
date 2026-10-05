@@ -13,7 +13,7 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const data = await getAssessment(ctx.tenantId, id);
   if (!data) notFound();
-  const { assessment, items, evidenceCount, score } = data;
+  const { assessment, items, evidenceCount, score, refLabel } = data;
   const canWrite = ctx.role !== "viewer";
 
   const profile = assessment.profile as (Profile & { recommended?: string }) | null;
@@ -77,7 +77,7 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
                     <div className="border-t border-line p-4 text-sm">
                       <p className="text-ink-2">{c.guidance}</p>
                       <p className="mt-2"><span className="font-medium">Evidence auditors look for:</span> <span className="text-ink-2">{c.evidenceHint}</span></p>
-                      {c.isoRefs && <p className="mt-1 text-xs text-muted">ISO/IEC 27001:2022 (indicative): {c.isoRefs}</p>}
+                      {c.isoRefs && <p className="mt-1 text-xs text-muted">{refLabel}: {c.isoRefs}</p>}
                       {canWrite ? (
                         <form key={`${c.status}-${c.updatedAt?.getTime() ?? 0}`} action={saveResponse} className="mt-4 grid gap-3 sm:grid-cols-[200px_1fr_auto] sm:items-start">
                           <input type="hidden" name="assessmentId" value={id} />

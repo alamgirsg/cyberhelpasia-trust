@@ -3,7 +3,7 @@
 One platform, two modules, built for the Singapore market:
 
 - **Module 1 — Cyber Trust Readiness** (this MVP): get organisations ready for CSA's Cyber Essentials and Cyber Trust marks.
-- **Module 2 — AI Assurance** (next phase): AI use-case inventory, risk scoring and LLM red-teaming mapped to MAS and IMDA expectations.
+- **Module 2 — AI Assurance** (preview): AI system inventory, explainable risk rating and an AI governance assessment; automated LLM red-teaming is next.
 
 ## What works today (Module 1 MVP)
 
@@ -27,6 +27,21 @@ One platform, two modules, built for the Singapore market:
 | Approved policies filed automatically as evidence for their controls, including in assessments created later | ✅ |
 | Activity log of logins, answers, task changes, uploads and downloads | ✅ |
 | Roles: owner / admin / contributor / viewer (viewer is read-only) | ✅ |
+
+## AI Assurance (Module 2, preview)
+
+| Feature | Status |
+| --- | --- |
+| AI system inventory (owner, vendor, model, status) with CSV export | ✅ |
+| Explainable risk rating from 6 questions (use, autonomy, tools, data, outside input, scale), live preview, written reasons | ✅ |
+| Owner/admin override with a required justification; stale overrides cleared when answers change the rating | ✅ |
+| Review cadence by rating (high 6, medium 12, low 24 months) with overdue flags | ✅ |
+| Suggested security test areas from the OWASP Top 10 for LLM Applications (2025) | ✅ |
+| AI governance assessment: 15 paraphrased controls across MAS's proposed AIRM areas, reusing tasks, evidence and the auditor pack | ✅ draft content |
+| Automated LLM / agent red-team runner against verified endpoints | Next |
+
+The risk heuristic is CyberHELP's own, not a regulatory formula. MAS's AI risk guidelines were still being finalised
+when this was written; verify the AI governance controls (`src/content/ai-governance.ts`) against the final text.
 
 ## Content notice — read before showing to customers
 
@@ -151,6 +166,8 @@ Playwright (Python) end-to-end tests:
 - `tests/e2e_policies.py` (15 checks): runs a fake Claude API and checks AI opt-in, exactly what is sent, prompt fencing,
   output cleaning, provider errors, contributor limits, XSS-safe preview, approval, evidence filing, versioning.
   Start the app with `ANTHROPIC_API_KEY=test-key ANTHROPIC_BASE_URL=http://localhost:4010`.
+- `tests/e2e_ai.py` (14 checks): AI inventory, live and stored risk rating, server-side validation, override with reason,
+  re-rating clears stale overrides, review, CSV export with formula guard, AI governance assessment, roles, isolation.
 - `tests/e2e_export.py` (10 checks): auditor pack contents, duplicate file names, formula-injection guard, tamper detection,
   activity log entry, 401/404 isolation. Needs the same `UPLOAD_DIR` as the server.
 
@@ -160,4 +177,7 @@ BASE=http://localhost:3000 python tests/e2e_smoke.py
 BASE=http://localhost:3000 python tests/e2e_team_mfa.py
 BASE=http://localhost:3000 UPLOAD_DIR=./uploads python tests/e2e_export.py
 BASE=http://localhost:3000 UPLOAD_DIR=./uploads python tests/e2e_policies.py
+BASE=http://localhost:3000 python tests/e2e_ai.py
 ```
+
+Sign-up is rate limited to 10 per hour per IP; restart the server between full runs of all suites.
