@@ -259,6 +259,60 @@ export const aiSystems = pgTable(
   (t) => [index("ai_systems_tenant_idx").on(t.tenantId)],
 );
 
+// ---------- AI Assurance: manual red-team engagements ----------
+
+export const ENGAGEMENT_STATUSES = ["planned", "in_progress", "completed"] as const;
+export type EngagementStatus = (typeof ENGAGEMENT_STATUSES)[number];
+export const SEVERITIES = ["info", "low", "medium", "high", "critical"] as const;
+export type Severity = (typeof SEVERITIES)[number];
+export const FINDING_STATUSES = ["open", "fixed", "accepted"] as const;
+export type FindingStatus = (typeof FINDING_STATUSES)[number];
+
+/**
+ * A manual, authorised red-team engagement against ONE AI system the tenant owns.
+ * authorisedBy / authorisedAt record who confirmed authorisation; an engagement cannot exist without it.
+ */
+export const engagements = pgTable(
+  "engagements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    aiSystemId: uuid("ai_system_id").notNull().references(() => aiSystems.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    scopeIn: text("scope_in").notNull(),
+    scopeOut: text("scope_out"),
+    status: text("status").$type<EngagementStatus>().notNull().default("planned"),
+    authorisedBy: uuid("authorised_by").references(() => users.id, { onDelete: "set null" }),
+    authorisedByName: text("authorised_by_name").notNull(),
+    authorisedAt: timestamp("authorised_at", { withTimezone: true }).notNull().defaultNow(),
+    startedOn: date("started_on"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("engagements_tenant_idx").on(t.tenantId), index("engagements_system_idx").on(t.aiSystemId)],
+);
+
+export const findings = pgTable(
+  "findings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    engagementId: uuid("engagement_id").notNull().references(() => engagements.id, { onDelete: "cascade" }),
+    testId: text("test_id"),
+    title: text("title").notNull(),
+    severity: text("severity").$type<Severity>().notNull(),
+    status: text("status").$type<FindingStatus>().notNull().default("open"),
+    detail: text("detail"),
+    remediation: text("remediation"),
+    evidenceId: uuid("evidence_id").references(() => evidence.id, { onDelete: "set null" }),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("findings_engagement_idx").on(t.engagementId)],
+);
+
 // ---------- Audit log ----------
 
 export const auditEvents = pgTable(

@@ -38,7 +38,8 @@ One platform, two modules, built for the Singapore market:
 | Review cadence by rating (high 6, medium 12, low 24 months) with overdue flags | ✅ |
 | Suggested security test areas from the OWASP Top 10 for LLM Applications (2025) | ✅ |
 | AI governance assessment: 15 paraphrased controls across MAS's proposed AIRM areas, reusing tasks, evidence and the auditor pack | ✅ draft content |
-| Automated LLM / agent red-team runner against verified endpoints | Next |
+| Authorised manual red-team engagements: scope, authorisation record, test checklist, findings with evidence, report filed as AIG-09 evidence | ✅ |
+| Automated LLM / agent red-team runner against verified endpoints | Not built — needs endpoint-ownership verification and egress lockdown first |
 
 The risk heuristic is CyberHELP's own, not a regulatory formula. MAS's AI risk guidelines were still being finalised
 when this was written; verify the AI governance controls (`src/content/ai-governance.ts`) against the final text.
@@ -166,6 +167,8 @@ Playwright (Python) end-to-end tests:
 - `tests/e2e_policies.py` (15 checks): runs a fake Claude API and checks AI opt-in, exactly what is sent, prompt fencing,
   output cleaning, provider errors, contributor limits, XSS-safe preview, approval, evidence filing, versioning.
   Start the app with `ANTHROPIC_API_KEY=test-key ANTHROPIC_BASE_URL=http://localhost:4010`.
+- `tests/e2e_engagements.py` (8 checks): authorisation gate, scope record, checklist, findings with evidence, viewer limits,
+  complete → AIG-09 evidence and auditor pack, isolation.
 - `tests/e2e_ai.py` (14 checks): AI inventory, live and stored risk rating, server-side validation, override with reason,
   re-rating clears stale overrides, review, CSV export with formula guard, AI governance assessment, roles, isolation.
 - `tests/e2e_export.py` (10 checks): auditor pack contents, duplicate file names, formula-injection guard, tamper detection,
@@ -178,6 +181,7 @@ BASE=http://localhost:3000 python tests/e2e_team_mfa.py
 BASE=http://localhost:3000 UPLOAD_DIR=./uploads python tests/e2e_export.py
 BASE=http://localhost:3000 UPLOAD_DIR=./uploads python tests/e2e_policies.py
 BASE=http://localhost:3000 python tests/e2e_ai.py
+BASE=http://localhost:3000 python tests/e2e_engagements.py
 ```
 
 Sign-up is rate limited to 10 per hour per IP; restart the server between full runs of all suites.

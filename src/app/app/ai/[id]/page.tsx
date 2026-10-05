@@ -5,6 +5,7 @@ import { getDb, schema } from "@/db";
 import { requireCtx } from "@/lib/auth";
 import { FACTORS, RATING_BADGE, RATING_LABEL, factorLabel, rateAiSystem, suggestedTests } from "@/lib/ai-risk";
 import { effectiveRating, reviewDue } from "@/lib/ai-review";
+import { asc } from "drizzle-orm";
 import { markReviewed } from "@/app/actions/ai";
 import { Badge, PageHeader } from "@/components/ui";
 import { AiForm } from "../ai-form";
@@ -25,8 +26,14 @@ export default async function AiSystemPage({ params, searchParams }: { params: P
     .limit(1);
   if (!s) notFound();
 
+  const engagements = await db
+    .select({ id: schema.engagements.id, title: schema.engagements.title, status: schema.engagements.status, authorisedByName: schema.engagements.authorisedByName, createdAt: schema.engagements.createdAt })
+    .from(schema.engagements)
+    .where(and(eq(schema.engagements.tenantId, ctx.tenantId), eq(schema.engagements.aiSystemId, id)))
+    .orderBy(asc(schema.engagements.createdAt));
   const canWrite = ctx.role !== "viewer";
   const canOverride = ctx.role === "owner" || ctx.role === "admin";
+  const canManage = canOverride;
   const risk = rateAiSystem(s.factors);
   const rating = effectiveRating(s);
   const rv = reviewDue(s.lastReviewedAt, rating);
@@ -84,6 +91,27 @@ export default async function AiSystemPage({ params, searchParams }: { params: P
       </div>
 
       {canOverride && <OverrideForm id={id} hasOverride={Boolean(s.overrideRating)} computed={s.computedRating} />}
+
+      <div className="card mb-6 overflow-hidden" data-testid="engagements">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line p-4">
+          <div><h2 className="font-semibold">Red-team engagements</h2><p className="text-xs text-muted">Authorised, manually run testing recorded against this system.</p></div>
+          {canManage && <Link href={`/app/ai/${id}/engagements/new`} className="btn-primary">New engagement</Link>}
+        </div>
+        {engagements.length === 0 ? (
+          <p className="p-6 text-center text-sm text-muted">No engagements yet.{canManage ? " Start one when you are authorised to test this system." : ""}</p>
+        ) : (
+          <table className="w-full text-sm">
+            <tbody>
+              {engagements.map((en) => (
+                <tr key={en.id} className="border-b border-line last:border-0">
+                  <td className="p-3"><Link href={`/app/ai/${id}/engagements/${en.id}`} className="font-medium text-brand-2 hover:underline">{en.title}</Link><div className="text-xs text-muted">Authorised by {en.authorisedByName}</div></td>
+                  <td className="p-3 text-right"><Badge kind={en.status === "completed" ? "met" : "partial"}>{en.status === "completed" ? "Completed" : en.status === "in_progress" ? "In progress" : "Planned"}</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       <div className="card p-6" data-testid="suggested-tests">
         <h2 className="text-lg font-semibold">What to test</h2>
