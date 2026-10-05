@@ -37,6 +37,13 @@ services:
       MFA_ENC_KEY: ${MFA_ENC_KEY:?set MFA_ENC_KEY in .env}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5-5}
+      APP_URL: ${APP_URL:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
       UPLOAD_DIR: /app/uploads
     volumes:
       - uploads:/app/uploads
@@ -46,7 +53,7 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/login || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/healthz || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5

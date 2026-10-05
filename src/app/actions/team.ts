@@ -1,7 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, isNull } from "drizzle-orm";
@@ -13,6 +13,7 @@ import { audit } from "@/lib/audit";
 import { randomToken, sha256 } from "@/lib/crypto";
 import { rateLimit } from "@/lib/ratelimit";
 import { findInvite } from "@/lib/invites";
+import { appUrl, inviteEmail, sendEmail } from "@/lib/email";
 import {
   MFA_PENDING_COOKIE,
   SESSION_COOKIE,
@@ -35,7 +36,7 @@ function canGrant(actor: Role, role: Role) {
   return actor === "owner" || role !== "owner";
 }
 
-export type InviteState = { error?: string; link?: string; email?: string } | undefined;
+export type InviteState = { error?: string; link?: string; email?: string; emailed?: boolean } | undefined;
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email"),
@@ -79,11 +80,13 @@ export async function createInvite(_: InviteState, form: FormData): Promise<Invi
     .returning({ id: schema.invites.id });
   await audit(ctx.tenantId, ctx.userId, "invite.created", "invite", inv.id, { email, role });
 
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const link = `${appUrl()}/invite/${token}`;
+  const mail = inviteEmail(ctx.tenantName, role, link);
+  const { sent } = await sendEmail({ to: email, ...mail });
+  if (sent) await audit(ctx.tenantId, ctx.userId, "invite.emailed", "invite", inv.id, { email });
+
   revalidatePath("/app/settings/team");
-  return { link: `${proto}://${host}/invite/${token}`, email };
+  return { link, email, emailed: sent };
 }
 
 export async function revokeInvite(form: FormData) {

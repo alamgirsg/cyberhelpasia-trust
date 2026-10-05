@@ -14,6 +14,9 @@ One platform, two modules, built for the Singapore market:
 | Two-step verification (TOTP, RFC 6238) with QR enrolment, replay protection and 8 one-time recovery codes | ✅ |
 | Login rate limiting (per email and per IP) | ✅ |
 | Team invites by single-use link (7-day expiry), role changes, member removal, last-owner protection | ✅ |
+| Invite and password-reset emails sent over SMTP when configured (otherwise the link is shown to copy) | ✅ |
+| Self-serve password reset by emailed single-use link (1-hour expiry); no account enumeration | ✅ |
+| Account settings: change display name and password (current password required) | ✅ |
 | Users in several workspaces, with a workspace switcher | ✅ |
 | Risk-profile wizard that recommends Cyber Essentials or Cyber Trust (with reasons, overridable) | ✅ |
 | Control library: 10 Cyber Essentials controls, 22 Cyber Trust domains, indicative ISO 27001:2022 refs | ✅ draft content |
@@ -65,6 +68,24 @@ npm run dev               # http://localhost:3000
 ```
 
 With `DATABASE_URL` empty the app uses an embedded PGlite database in `./.data` (development only).
+
+### Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string; empty uses embedded PGlite (dev only) |
+| `SESSION_SECRET` | signs the session cookie (required) |
+| `MFA_ENC_KEY` | derives the AES-256-GCM key for MFA secrets (required) |
+| `APP_URL` | public base URL, used to build invite and reset links (e.g. `https://trust.cyberhelpasia.com`) |
+| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | enable AI policy drafting (optional; drafting is also off per workspace until an owner turns it on) |
+| `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` | outbound email; if unset, invite and reset links are shown in-app to copy instead of emailed |
+| `UPLOAD_DIR` | evidence storage directory |
+
+### Operational endpoints
+
+- `GET /healthz` — liveness + database check (`{"status":"ok"}`, or 503 when the database is unreachable)
+- `/robots.txt` — disallows `/app/`
+- `/sitemap.xml`, `/.well-known/security.txt` (RFC 9116)
 
 ## Deploy on the VPS with Docker
 
@@ -137,7 +158,10 @@ scripts/                    migrate + seed
 - MFA secrets are AES-256-GCM encrypted with a key derived from `MFA_ENC_KEY`; recovery codes and invite tokens are stored only as SHA-256 hashes.
 - After the password step, a 5-minute "MFA pending" token is issued; it cannot be used as a session.
 - Rate limits are in memory (one app instance). Move them to Redis before running several instances.
-- Invite links are shown to the admin to send; email delivery is a later step.
+- Password reset: tokens are stored only as SHA-256 hashes, expire in 1 hour and are single-use; completing a reset
+  clears the session cookie. The "forgot password" form returns the same message whether or not the account exists
+  (no enumeration) and is rate limited per email.
+- Invite and reset links are emailed when SMTP is configured; otherwise the link is shown in-app to send manually.
 - Auditor pack: every evidence file is re-hashed on export and compared with the hash taken at upload; mismatches are flagged
   in the manifest, README and report. CSV cells starting with = + - @ are prefixed with ' to block formula injection.
 - AI drafting is off per workspace until an owner/admin turns it on. Only the fields on the draft form and the
@@ -151,10 +175,10 @@ scripts/                    migrate + seed
 
 ## Next steps
 
-1. Email delivery for invites and security alerts
-2. PostgreSQL row-level security as a second isolation layer
-3. S3-compatible evidence storage (Singapore region)
-4. Module 2: AI Assurance
+1. PostgreSQL row-level security as a second isolation layer
+2. S3-compatible evidence storage (Singapore region)
+3. Shared rate-limit store (Redis) for multi-instance deployments
+4. Security-alert emails (new sign-in, MFA disabled)
 
 ## Tests
 
@@ -173,6 +197,11 @@ Playwright (Python) end-to-end tests:
   re-rating clears stale overrides, review, CSV export with formula guard, AI governance assessment, roles, isolation.
 - `tests/e2e_export.py` (10 checks): auditor pack contents, duplicate file names, formula-injection guard, tamper detection,
   activity log entry, 401/404 isolation. Needs the same `UPLOAD_DIR` as the server.
+- `tests/e2e_account.py` (8 checks): `/healthz`, robots and security.txt, invite email captured and accepted via the
+  emailed link, forgot-password no-enumeration, reset link single-use, account rename and password change. Start the app
+  with `EMAIL_CAPTURE_FILE` (a writable path) and `APP_URL` so the test can read captured mail and follow the links.
+
+87 checks across the seven suites.
 
 ```bash
 pip install playwright && playwright install chromium
@@ -182,6 +211,9 @@ BASE=http://localhost:3000 UPLOAD_DIR=./uploads python tests/e2e_export.py
 BASE=http://localhost:3000 UPLOAD_DIR=./uploads python tests/e2e_policies.py
 BASE=http://localhost:3000 python tests/e2e_ai.py
 BASE=http://localhost:3000 python tests/e2e_engagements.py
+EMAIL_CAPTURE_FILE=/tmp/mail.jsonl BASE=http://localhost:3000 python tests/e2e_account.py
 ```
 
-Sign-up is rate limited to 10 per hour per IP; restart the server between full runs of all suites.
+Start the server with a matching `EMAIL_CAPTURE_FILE` and `APP_URL` for the account suite, and with
+`ANTHROPIC_API_KEY=test-key ANTHROPIC_BASE_URL=http://localhost:4010` for the policies suite. Sign-up is rate limited to
+10 per hour per IP; restart the server between full runs of all suites.

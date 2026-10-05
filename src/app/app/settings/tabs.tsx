@@ -1,8 +1,11 @@
 import Link from "next/link";
 
-export function SettingsTabs({ active, canManage }: { active: "security" | "team"; canManage: boolean }) {
-  const tabs: Array<[string, string, string]> = [["security", "/app/settings/security", "Security"]];
-  tabs.push(["team", "/app/settings/team", canManage ? "Team" : "Team members"]);
+export function SettingsTabs({ active, canManage }: { active: "account" | "security" | "team"; canManage: boolean }) {
+  const tabs: Array<[string, string, string]> = [
+    ["account", "/app/settings/account", "Account"],
+    ["security", "/app/settings/security", "Security"],
+    ["team", "/app/settings/team", canManage ? "Team" : "Team members"],
+  ];
   return (
     <div className="mb-6 flex gap-1 border-b border-line">
       {tabs.map(([key, href, label]) => (

@@ -25,7 +25,10 @@ export function InviteForm({ roles }: { roles: readonly string[] }) {
       {state?.error && <p className="mt-2 text-sm text-bad" role="alert">{state.error}</p>}
       {state?.link && (
         <div className="mt-4 rounded-lg bg-paper p-3 text-sm">
-          <p className="text-ink-2">Send this link to <span className="font-semibold">{state.email}</span>. It works once and expires in 7 days.</p>
+          <p className="text-ink-2">
+            {state.emailed ? <>Sent to <span className="font-semibold">{state.email}</span>. You can also copy the link below. </> : <>Send this link to <span className="font-semibold">{state.email}</span>. </>}
+            It works once and expires in 7 days.
+          </p>
           <div className="mt-2 flex gap-2">
             <input readOnly value={state.link} className="input font-mono text-xs" data-testid="invite-link" onFocus={(e) => e.currentTarget.select()} />
             <button

@@ -23,6 +23,7 @@ export default function LoginPage() {
           </div>
           {state?.error && <p className="text-sm text-bad" role="alert">{state.error}</p>}
           <button className="btn-primary w-full" disabled={pending}>{pending ? "Signing in…" : "Sign in"}</button>
+          <p className="text-center text-sm"><Link href="/forgot" className="text-brand-2 hover:underline">Forgot your password?</Link></p>
         </form>
       </div>
       <p className="mt-4 text-center text-sm text-muted">
