@@ -119,7 +119,7 @@ export default async function AiSystemPage({ params, searchParams }: { params: P
         {tests.length ? (
           <ul className="mt-3 space-y-2 text-sm">
             {tests.map((t) => (
-              <li key={t.id} className="flex gap-3"><span className="w-14 shrink-0 font-mono text-xs text-muted">{t.id}</span><span><span className="font-medium">{t.name}</span> — {t.why}</span></li>
+              <li key={t.id} className="flex gap-3"><span className="ref w-14 shrink-0 text-xs text-muted">{t.id}</span><span><span className="font-medium">{t.name}</span> — {t.why}</span></li>
             ))}
           </ul>
         ) : (

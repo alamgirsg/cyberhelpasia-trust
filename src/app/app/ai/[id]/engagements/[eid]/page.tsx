@@ -56,7 +56,7 @@ export default async function EngagementPage({ params }: { params: Promise<{ id:
             {checklist.map((t) => (
               <li key={t.id} className="flex items-center gap-2">
                 <span className={covered.has(t.id) ? "text-accent" : "text-muted"}>{covered.has(t.id) ? "☑" : "☐"}</span>
-                <span className="font-mono text-xs text-muted">{t.id}</span> {t.name}
+                <span className="ref text-xs text-muted">{t.id}</span> {t.name}
               </li>
             ))}
           </ul>
@@ -77,7 +77,7 @@ export default async function EngagementPage({ params }: { params: Promise<{ id:
                   <td className="p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge kind={SEV_BADGE[f.severity]}>{f.severity.toUpperCase()}</Badge>
-                      {f.testId && <span className="font-mono text-xs text-muted">{f.testId}</span>}
+                      {f.testId && <span className="ref text-xs text-muted">{f.testId}</span>}
                       <span className="font-medium">{f.title}</span>
                     </div>
                     {f.detail && <p className="mt-1 text-ink-2">{f.detail}</p>}

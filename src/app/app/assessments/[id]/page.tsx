@@ -67,7 +67,7 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
                 {list.map((c) => (
                   <details key={c.controlId} className="card group p-0">
                     <summary className="flex cursor-pointer list-none items-start gap-3 p-4">
-                      <span className="mt-0.5 font-mono text-xs text-muted">{c.controlId}</span>
+                      <span className="ref mt-0.5 text-xs text-muted">{c.controlId}</span>
                       <span className="flex-1 font-medium">{c.title}</span>
                       {(evidenceCount.get(c.controlId) ?? 0) > 0 && (
                         <span className="text-xs text-muted">{evidenceCount.get(c.controlId)} file(s)</span>

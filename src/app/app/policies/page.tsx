@@ -64,7 +64,7 @@ export default async function PoliciesPage() {
                 {current ? <Badge kind="met">v{current.version} approved</Badge> : draft ? <Badge kind="partial">Draft</Badge> : <Badge kind="not_started">Not started</Badge>}
               </div>
               <p className="mt-1 flex-1 text-sm text-ink-2">{def.purpose}</p>
-              <p className="mt-2 font-mono text-xs text-muted">Evidence for {def.controls.join(", ")}</p>
+              <p className="ref mt-2 text-xs text-muted">Evidence for {def.controls.join(", ")}</p>
               <div className="mt-3 flex flex-wrap gap-2 text-sm">
                 {draft && <Link href={`/app/policies/${draft.id}`} className="btn-primary">Review draft v{draft.version}</Link>}
                 {current && <Link href={`/app/policies/${current.id}`} className="btn-ghost">View v{current.version}</Link>}

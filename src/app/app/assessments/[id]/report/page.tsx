@@ -48,7 +48,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         <tbody>
           {items.map((c) => (
             <tr key={c.controlId} className="border-b border-line align-top">
-              <td className="py-1.5 pr-2 font-mono text-xs">{c.controlId}</td>
+              <td className="ref py-1.5 pr-2 text-xs">{c.controlId}</td>
               <td className="py-1.5 pr-2">{c.title}{c.notes && <div className="text-xs text-muted">{c.notes}</div>}</td>
               <td className="py-1.5 pr-2 whitespace-nowrap">{STATUS_LABEL[c.status]}</td>
               <td className="py-1.5 text-right">{evidenceCount.get(c.controlId) ?? 0}</td>

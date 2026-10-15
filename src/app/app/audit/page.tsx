@@ -37,7 +37,7 @@ export default async function AuditPage() {
               <tr key={r.id} className="border-b border-line last:border-0 align-top">
                 <td className="whitespace-nowrap p-3 text-xs text-muted">{r.createdAt.toLocaleString("en-SG")}</td>
                 <td className="p-3">{r.actor ?? "—"}</td>
-                <td className="p-3 font-mono text-xs">{r.action}</td>
+                <td className="ref p-3 text-xs">{r.action}</td>
                 <td className="p-3 text-xs text-ink-2">
                   {r.objectType}{r.objectId ? ` · ${r.objectId.slice(0, 13)}` : ""}
                   {r.detail && "to" in r.detail ? ` → ${String(r.detail.to)}` : ""}

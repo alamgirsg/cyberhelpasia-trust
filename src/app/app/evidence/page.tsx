@@ -68,7 +68,7 @@ export default async function EvidencePage({ searchParams }: { searchParams: Pro
                   <a href={`/api/evidence/${f.id}`} className="font-medium text-brand-2 hover:underline">{f.fileName}</a>
                   <div className="text-xs text-muted">{size(f.sizeBytes)}{f.description ? ` · ${f.description}` : ""}</div>
                 </td>
-                <td className="p-3 font-mono text-xs">{f.controlId ?? "—"}</td>
+                <td className="ref p-3 text-xs">{f.controlId ?? "—"}</td>
                 <td className="p-3 text-xs text-muted">{f.createdAt.toLocaleString("en-SG")}<br />{f.uploader ?? ""}</td>
                 <td className="p-3 font-mono text-xs text-muted" title={f.sha256}>{f.sha256.slice(0, 12)}…</td>
               </tr>

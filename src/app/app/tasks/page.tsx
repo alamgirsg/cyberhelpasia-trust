@@ -57,7 +57,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                   <p className="font-medium">{t.title}</p>
                   <p className="text-xs text-muted">
                     {t.controlId && t.assessmentId && (
-                      <Link href={`/app/assessments/${t.assessmentId}`} className="font-mono hover:underline">{t.controlId}</Link>
+                      <Link href={`/app/assessments/${t.assessmentId}`} className="ref hover:underline">{t.controlId}</Link>
                     )}
                     {t.assignee ? ` · ${t.assignee}` : ""}
                     {t.dueDate ? ` · due ${t.dueDate}` : ""}

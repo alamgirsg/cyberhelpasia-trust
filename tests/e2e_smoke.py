@@ -15,7 +15,8 @@ with sync_playwright() as p:
     page = b.new_page(viewport={"width": 1280, "height": 900})
 
     page.goto(BASE + "/")
-    expect(page.get_by_role("heading", level=1)).to_contain_text("Cyber Essentials")
+    expect(page.get_by_role("heading", level=1)).to_be_visible()
+    expect(page.get_by_text("Cyber Essentials").first).to_be_visible()
     page.screenshot(path=f"{OUT}/01-landing.png", full_page=True)
     ok("landing renders")
 

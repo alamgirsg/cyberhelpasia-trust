@@ -1,17 +1,45 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------ *
+ * CyberHELP Asia Trust — "Instrument of Trust" design system
+ * A certification-readiness product, so the interface behaves like a
+ * precise institutional instrument: a cool porcelain field, an
+ * engraved expanded grotesque for headings, and one signal colour
+ * (jade) reserved for "verified / ready". Token names are stable;
+ * only their values and the component primitives have been reworked.
+ * ------------------------------------------------------------------ */
+
 @theme {
-  --color-ink: #0e1726;
-  --color-ink-2: #3b4658;
-  --color-muted: #6b7486;
-  --color-line: #e3e7ee;
-  --color-paper: #f6f7f9;
-  --color-brand: #0b3d6b;
-  --color-brand-2: #0f6aa8;
-  --color-accent: #0f8f7e;
-  --color-warn: #b7791f;
+  /* Surfaces — cool porcelain, faint blue undertone (never grey, never cream) */
+  --color-paper: #eef1f6;
+  --color-surface: #ffffff;
+
+  /* Text */
+  --color-ink: #0a1b2e;
+  --color-ink-2: #44566b;
+  --color-muted: #7d8aa0;
+
+  /* Structure */
+  --color-line: #d7dfea;
+
+  /* Brand — deep institutional navy (continues the existing logo lineage) */
+  --color-brand: #0b2a4a;
+  --color-brand-2: #12568f;
+
+  /* The one signature signal: jade = verified / ready / go */
+  --color-accent: #0e7c66;
+
+  /* Status */
+  --color-warn: #9a6700;
   --color-bad: #b42318;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Deep field used behind navy sections */
+  --color-field: #071a30;
+
+  --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 14px;
 }
 
 html {
@@ -22,34 +50,138 @@ html {
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+/* Headings and anything that reads as display: the engraved grotesque.
+   A touch of width + tight tracking gives the certification-plaque feel. */
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  font-stretch: 112%;
+  letter-spacing: -0.015em;
+}
+
+/* Numerals in data contexts line up in columns. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* Reference identifiers (control IDs, event codes): aligned and intentional,
+   without reaching for a monospace face. Mono stays for real code — hashes,
+   secrets, recovery codes, URLs, the policy markdown editor. */
+.ref {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* --- Guilloché: the line-engraving language of certificates & seals.
+   Two offset radial sweeps + a fine grid, kept very subtle. Used only
+   on navy surfaces as a meaningful motif, never as decorative gradient. */
+.guilloche {
+  position: relative;
+  isolation: isolate;
+}
+.guilloche::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    repeating-radial-gradient(circle at 18% 120%, rgba(14, 124, 102, 0.22) 0 1px, transparent 1px 13px),
+    repeating-radial-gradient(circle at 92% -10%, rgba(120, 180, 255, 0.12) 0 1px, transparent 1px 17px),
+    linear-gradient(transparent 0, transparent calc(100% - 1px), rgba(255, 255, 255, 0.04) 100%);
+  background-size: auto, auto, 34px 34px;
+  mask-image: linear-gradient(180deg, #000 0%, #000 70%, transparent 100%);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+/* ------------------------------ components ------------------------------ */
 
 .card {
-  @apply rounded-xl border border-line bg-white;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
 }
 
+/* Buttons share a crisp, slightly engraved resting state. The navy sits
+   on a 1px darker edge so it reads as a physical control, not a flat fill. */
 .btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 bg-brand text-white hover:bg-brand-2;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50;
+  background: var(--color-brand);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 2px rgba(7, 26, 48, 0.28);
 }
+.btn-primary:hover { background: var(--color-brand-2); }
 
 .btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 border border-line bg-white text-ink hover:bg-paper;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
 }
+.btn-ghost:hover { border-color: #b9c6d6; background: #f7f9fc; }
 
 .input {
-  @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-brand-2 focus:ring-2 focus:ring-brand-2/20;
+  @apply w-full rounded-lg px-3 py-2 text-sm outline-none transition;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+}
+.input:focus {
+  border-color: var(--color-brand-2);
+  box-shadow: 0 0 0 3px rgba(18, 86, 143, 0.16);
 }
 
 .label {
-  @apply mb-1 block text-sm font-medium text-ink-2;
+  @apply mb-1 block text-sm font-medium;
+  color: var(--color-ink-2);
+}
+
+/* A sentence-case kicker tied to a short jade rule. Used sparingly — one
+   positioning line, not a label stamped above every heading. */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--color-accent);
+}
+.eyebrow::before {
+  content: "";
+  width: 1.75rem;
+  height: 2px;
+  background: var(--color-accent);
+  border-radius: 2px;
+}
+
+/* Visible, consistent keyboard focus everywhere. */
+:focus-visible {
+  outline: 2px solid var(--color-brand-2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* One orchestrated motion moment: the readiness gauge sweeping to value. */
+@keyframes gauge-sweep {
+  from { stroke-dashoffset: var(--dash-empty); }
+  to { stroke-dashoffset: var(--dash-value); }
+}
+.gauge-arc {
+  animation: gauge-sweep 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .gauge-arc { animation: none; stroke-dashoffset: var(--dash-value); }
 }
 
 @media print {
-  .no-print {
-    display: none !important;
-  }
-  html,
-  body {
-    background: white;
-  }
+  .no-print { display: none !important; }
+  html, body { background: white; }
+  .guilloche::before { display: none; }
 }
