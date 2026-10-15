@@ -131,6 +131,35 @@ h1, h2, h3, .font-display {
   box-shadow: 0 0 0 3px rgba(18, 86, 143, 0.16);
 }
 
+/* Native controls, brought on-brand so forms don't fall back to browser defaults. */
+input[type="radio"],
+input[type="checkbox"] {
+  accent-color: var(--color-brand-2);
+  width: 1rem;
+  height: 1rem;
+}
+input[type="file"] {
+  font-size: 0.875rem;
+  color: var(--color-ink-2);
+}
+input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.5rem;
+  background: #f7f9fc;
+  color: var(--color-ink);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+input[type="file"]::file-selector-button:hover {
+  background: #eef2f7;
+  border-color: #b9c6d6;
+}
+
 .label {
   @apply mb-1 block text-sm font-medium;
   color: var(--color-ink-2);
