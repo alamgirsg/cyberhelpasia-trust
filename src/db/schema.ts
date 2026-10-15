@@ -300,11 +300,53 @@ export const engagements = pgTable(
     authorisedAt: timestamp("authorised_at", { withTimezone: true }).notNull().defaultNow(),
     startedOn: date("started_on"),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    // ---- Automated-run target (optional). A run is only allowed once verifiedAt is set,
+    // which proves the tenant controls targetUrl's host (see src/lib/redteam/verify.ts). ----
+    targetUrl: text("target_url"),
+    /** Field name in the JSON request body that carries the prompt (default "input"). */
+    targetReqField: text("target_req_field"),
+    /** Dot-path in the JSON response that holds the model's reply (default "output"). */
+    targetResPath: text("target_res_path"),
+    /** Optional header the customer's own endpoint needs (name + AES-GCM encrypted value). */
+    targetAuthHeader: text("target_auth_header"),
+    targetAuthValueEnc: text("target_auth_value_enc"),
+    /** Random token the tenant must serve at /.well-known to prove host control. */
+    verificationToken: text("verification_token"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("engagements_tenant_idx").on(t.tenantId), index("engagements_system_idx").on(t.aiSystemId)],
+);
+
+export const PROBE_RUN_STATUSES = ["running", "completed", "error"] as const;
+export type ProbeRunStatus = (typeof PROBE_RUN_STATUSES)[number];
+
+/**
+ * One automated probe run against an engagement's verified target. Each failed probe also
+ * becomes a finding; this row keeps the run summary and the full per-probe result list.
+ */
+export const probeRuns = pgTable(
+  "probe_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    engagementId: uuid("engagement_id").notNull().references(() => engagements.id, { onDelete: "cascade" }),
+    status: text("status").$type<ProbeRunStatus>().notNull().default("running"),
+    total: integer("total").notNull().default(0),
+    passed: integer("passed").notNull().default(0),
+    failed: integer("failed").notNull().default(0),
+    errored: integer("errored").notNull().default(0),
+    requestsMade: integer("requests_made").notNull().default(0),
+    summary: text("summary"),
+    /** Full per-probe results: [{ id, owaspId, name, status, detail }]. */
+    results: jsonb("results").$type<Array<Record<string, unknown>>>(),
+    startedBy: uuid("started_by").references(() => users.id, { onDelete: "set null" }),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [index("probe_runs_engagement_idx").on(t.engagementId), index("probe_runs_tenant_idx").on(t.tenantId)],
 );
 
 export const findings = pgTable(

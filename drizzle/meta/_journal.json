@@ -50,6 +50,13 @@
       "when": 1791171066153,
       "tag": "0006_password_resets",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792058831810,
+      "tag": "0007_curvy_quasimodo",
+      "breakpoints": true
     }
   ]
 }

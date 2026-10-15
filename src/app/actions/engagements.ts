@@ -11,8 +11,23 @@ import { getDb, schema } from "@/db";
 import { SEVERITIES, FINDING_STATUSES } from "@/db/schema";
 import { requireCtx, requireWriter, type Ctx } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { encrypt, decrypt } from "@/lib/crypto";
+import { assertSafeTarget, TargetRejected } from "@/lib/redteam/ssrf";
+import { verifyOwnership, newVerificationToken } from "@/lib/redteam/verify";
+import { runProbes, type TargetConfig } from "@/lib/redteam/runner";
 
 export type EngagementState = { error?: string; values?: Record<string, string> } | undefined;
+
+/** Feedback state for the automated-run controls. */
+export type RunState = { error?: string; ok?: boolean; detail?: string } | undefined;
+
+/** Findings produced by a run carry this prefix so a re-run can replace the previous set. */
+const AUTO_PREFIX = "[Automated probe] ";
+
+function requireOwnerAdmin(ctx: Ctx) {
+  if (ctx.role !== "owner" && ctx.role !== "admin")
+    throw new Error("Only an owner or admin can run authorised testing.");
+}
 
 async function ownSystem(ctx: Ctx, aiSystemId: string) {
   const db = await getDb();
@@ -249,4 +264,182 @@ export async function reopenEngagement(form: FormData) {
   await db.update(schema.engagements).set({ status: "in_progress", completedAt: null, updatedAt: new Date() }).where(eq(schema.engagements.id, id));
   await audit(ctx.tenantId, ctx.userId, "engagement.reopened", "engagement", id);
   revalidatePath(`/app/ai/${e.aiSystemId}/engagements/${id}`);
+}
+
+// ---------------- Automated runner: target config, verification, run ----------------
+
+const targetSchema = z.object({
+  engagementId: z.string().uuid(),
+  targetUrl: z.string().trim().min(1, "Enter the endpoint URL").max(2000),
+  reqField: z.string().trim().regex(/^[A-Za-z0-9_]{1,40}$/, "Request field must be letters, numbers or underscore").optional().transform((v) => v || "input"),
+  resPath: z.string().trim().regex(/^[A-Za-z0-9_.]{0,80}$/, "Response path may use letters, numbers, dot and underscore").optional().transform((v) => v || null),
+  authHeader: z.string().trim().regex(/^[A-Za-z0-9-]{0,40}$/, "Header name may use letters, numbers and hyphen").optional().transform((v) => v || null),
+  authValue: z.string().max(4000).optional().transform((v) => v || null),
+});
+
+/** Register (or update) the endpoint to be tested. Changing the URL clears verification. */
+export async function configureTarget(_: RunState, form: FormData): Promise<RunState> {
+  const ctx = await requireCtx();
+  try {
+    requireOwnerAdmin(ctx);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  const parsed = targetSchema.safeParse(Object.fromEntries(form));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the target details" };
+  const d = parsed.data;
+  // Shape/scheme/SSRF validation up front (DNS check included); the run re-checks at connect time.
+  let normalised: string;
+  try {
+    normalised = (await assertSafeTarget(d.targetUrl)).toString();
+  } catch (e) {
+    return { error: e instanceof TargetRejected ? e.message : "The endpoint URL is not valid." };
+  }
+  const e = await ownEngagement(ctx, d.engagementId);
+  const urlChanged = e.targetUrl !== normalised;
+  const db = await getDb();
+  await db
+    .update(schema.engagements)
+    .set({
+      targetUrl: normalised,
+      targetReqField: d.reqField,
+      targetResPath: d.resPath,
+      targetAuthHeader: d.authHeader,
+      // Keep an existing secret if the field was left blank; encrypt a new one otherwise.
+      targetAuthValueEnc: d.authValue ? encrypt(d.authValue) : e.targetAuthValueEnc,
+      verificationToken: e.verificationToken ?? newVerificationToken(),
+      verifiedAt: urlChanged ? null : e.verifiedAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.engagements.id, e.id));
+  await audit(ctx.tenantId, ctx.userId, "engagement.target_set", "engagement", e.id, { host: new URL(normalised).host, reVerify: urlChanged });
+  revalidatePath(`/app/ai/${e.aiSystemId}/engagements/${e.id}`);
+  return { ok: true, detail: urlChanged ? "Target saved. Verify ownership before running." : "Target saved." };
+}
+
+/** Check the tenant serves the token at the well-known path on the target host. */
+export async function verifyTarget(_: RunState, form: FormData): Promise<RunState> {
+  const ctx = await requireCtx();
+  try {
+    requireOwnerAdmin(ctx);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  const id = z.string().uuid().parse(form.get("id"));
+  const e = await ownEngagement(ctx, id);
+  if (!e.targetUrl || !e.verificationToken) return { error: "Set the target endpoint first." };
+  const result = await verifyOwnership(e.targetUrl, e.verificationToken);
+  const db = await getDb();
+  await db
+    .update(schema.engagements)
+    .set({ verifiedAt: result.ok ? new Date() : null, updatedAt: new Date() })
+    .where(eq(schema.engagements.id, id));
+  await audit(ctx.tenantId, ctx.userId, "engagement.target_verify", "engagement", id, { ok: result.ok });
+  revalidatePath(`/app/ai/${e.aiSystemId}/engagements/${id}`);
+  return result.ok ? { ok: true, detail: result.detail } : { error: result.detail };
+}
+
+/**
+ * Run the authorised probe suite. Gated on: owner/admin, a configured target, and a FRESH
+ * ownership re-check at run time. Failures become findings (replacing the previous run's).
+ */
+export async function runAutomated(_: RunState, form: FormData): Promise<RunState> {
+  const ctx = await requireCtx();
+  try {
+    requireOwnerAdmin(ctx);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  const id = z.string().uuid().parse(form.get("id"));
+  const e = await ownEngagement(ctx, id);
+  if (e.status === "completed") return { error: "This engagement is completed. Reopen it to run again." };
+  if (!e.targetUrl || !e.verificationToken) return { error: "Set the target endpoint first." };
+  if (!e.verifiedAt) return { error: "Verify ownership of the target before running." };
+
+  // Re-verify ownership at the moment of testing — authorisation must hold now, not just earlier.
+  const recheck = await verifyOwnership(e.targetUrl, e.verificationToken);
+  const db = await getDb();
+  if (!recheck.ok) {
+    await db.update(schema.engagements).set({ verifiedAt: null, updatedAt: new Date() }).where(eq(schema.engagements.id, id));
+    await audit(ctx.tenantId, ctx.userId, "engagement.run_blocked", "engagement", id, { reason: "verification_failed" });
+    return { error: `Ownership re-check failed, so no test was run: ${recheck.detail}` };
+  }
+
+  const [run] = await db
+    .insert(schema.probeRuns)
+    .values({ tenantId: ctx.tenantId, engagementId: id, status: "running", startedBy: ctx.userId })
+    .returning({ id: schema.probeRuns.id });
+
+  const target: TargetConfig = {
+    url: e.targetUrl,
+    reqField: e.targetReqField ?? "input",
+    resPath: e.targetResPath,
+    authHeader: e.targetAuthHeader,
+    authValue: e.targetAuthValueEnc ? decrypt(e.targetAuthValueEnc) : null,
+  };
+
+  try {
+    const result = await runProbes(target);
+    const summary = `${result.failed} failed, ${result.passed} passed, ${result.errored} errored across ${result.total} probes (${result.requestsMade} requests).`;
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(schema.probeRuns)
+        .set({
+          status: "completed",
+          total: result.total,
+          passed: result.passed,
+          failed: result.failed,
+          errored: result.errored,
+          requestsMade: result.requestsMade,
+          summary,
+          results: result.results,
+          finishedAt: new Date(),
+        })
+        .where(eq(schema.probeRuns.id, run.id));
+
+      // Replace the previous automated findings so re-runs don't pile up.
+      const prior = await tx
+        .select({ id: schema.findings.id, detail: schema.findings.detail })
+        .from(schema.findings)
+        .where(eq(schema.findings.engagementId, id));
+      const toDelete = prior.filter((p) => (p.detail ?? "").startsWith(AUTO_PREFIX)).map((p) => p.id);
+      for (const fid of toDelete) await tx.delete(schema.findings).where(eq(schema.findings.id, fid));
+
+      const failed = result.results.filter((r) => r.status === "fail");
+      if (failed.length) {
+        await tx.insert(schema.findings).values(
+          failed.map((r) => ({
+            tenantId: ctx.tenantId,
+            engagementId: id,
+            testId: r.owaspId,
+            title: r.name,
+            severity: r.severity,
+            detail: `${AUTO_PREFIX}${r.detail}`,
+            remediation: r.remediation,
+            createdBy: ctx.userId,
+          })),
+        );
+      }
+      if (e.status === "planned")
+        await tx.update(schema.engagements).set({ status: "in_progress", updatedAt: new Date() }).where(eq(schema.engagements.id, id));
+    });
+
+    await audit(ctx.tenantId, ctx.userId, "engagement.run_completed", "engagement", id, {
+      runId: run.id,
+      failed: result.failed,
+      passed: result.passed,
+      requests: result.requestsMade,
+    });
+    revalidatePath(`/app/ai/${e.aiSystemId}/engagements/${id}`);
+    return { ok: result.failed === 0, detail: summary };
+  } catch (err) {
+    await db
+      .update(schema.probeRuns)
+      .set({ status: "error", summary: (err as Error).message?.slice(0, 500), finishedAt: new Date() })
+      .where(eq(schema.probeRuns.id, run.id));
+    await audit(ctx.tenantId, ctx.userId, "engagement.run_error", "engagement", id, { runId: run.id });
+    revalidatePath(`/app/ai/${e.aiSystemId}/engagements/${id}`);
+    return { error: `The run could not be completed: ${(err as Error).message}` };
+  }
 }

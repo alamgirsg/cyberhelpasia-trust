@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { requireCtx } from "@/lib/auth";
 import { suggestedTests } from "@/lib/ai-risk";
+import { verificationUrlFor } from "@/lib/redteam/verify";
 import { completeEngagement, reopenEngagement, setEngagementStatus, setFindingStatus } from "@/app/actions/engagements";
 import { Badge, PageHeader } from "@/components/ui";
 import { FindingForm } from "./finding-form";
+import { AutomatedPanel } from "./automated-panel";
 
 export const metadata = { title: "Red-team engagement" };
 
@@ -33,6 +35,13 @@ export default async function EngagementPage({ params }: { params: Promise<{ id:
   const done = e.status === "completed";
   const checklist = sys ? suggestedTests(sys.factors) : [];
   const covered = new Set(fs.map((f) => f.testId).filter(Boolean));
+
+  const [latest] = await db
+    .select()
+    .from(schema.probeRuns)
+    .where(eq(schema.probeRuns.engagementId, eid))
+    .orderBy(desc(schema.probeRuns.startedAt))
+    .limit(1);
 
   return (
     <div className="max-w-3xl">
@@ -62,6 +71,34 @@ export default async function EngagementPage({ params }: { params: Promise<{ id:
           </ul>
         </div>
       )}
+
+      <AutomatedPanel
+        engagementId={eid}
+        canManage={canManage}
+        done={done}
+        target={{
+          url: e.targetUrl,
+          reqField: e.targetReqField ?? "input",
+          resPath: e.targetResPath,
+          authHeader: e.targetAuthHeader,
+          hasAuthValue: !!e.targetAuthValueEnc,
+        }}
+        verification={{
+          token: e.verificationToken,
+          url: e.targetUrl ? verificationUrlFor(e.targetUrl) : null,
+          verifiedAt: e.verifiedAt ? e.verifiedAt.toISOString() : null,
+        }}
+        latestRun={
+          latest
+            ? {
+                status: latest.status,
+                summary: latest.summary,
+                startedAt: latest.startedAt.toISOString(),
+                results: (latest.results as { owaspId: string; name: string; status: string; detail: string; severity: string }[] | null) ?? null,
+              }
+            : null
+        }
+      />
 
       <div className="card mb-6 overflow-hidden">
         <div className="flex items-center justify-between border-b border-line p-4">

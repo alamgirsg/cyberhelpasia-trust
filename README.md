@@ -3,7 +3,7 @@
 One platform, two modules, built for the Singapore market:
 
 - **Module 1 — Cyber Trust Readiness** (this MVP): get organisations ready for CSA's Cyber Essentials and Cyber Trust marks.
-- **Module 2 — AI Assurance** (preview): AI system inventory, explainable risk rating and an AI governance assessment; automated LLM red-teaming is next.
+- **Module 2 — AI Assurance** (preview): AI system inventory, explainable risk rating, an AI governance assessment, and authorised manual **and automated** LLM red-teaming.
 
 ## What works today (Module 1 MVP)
 
@@ -42,7 +42,31 @@ One platform, two modules, built for the Singapore market:
 | Suggested security test areas from the OWASP Top 10 for LLM Applications (2025) | ✅ |
 | AI governance assessment: 15 paraphrased controls across MAS's proposed AIRM areas, reusing tasks, evidence and the auditor pack | ✅ draft content |
 | Authorised manual red-team engagements: scope, authorisation record, test checklist, findings with evidence, report filed as AIG-09 evidence | ✅ |
-| Automated LLM / agent red-team runner against verified endpoints | Not built — needs endpoint-ownership verification and egress lockdown first |
+| Authorised **automated** LLM red-team runner: ownership-verified target, egress-locked probes mapped to OWASP LLM Top 10, failures become findings | ✅ |
+
+### Automated red-team runner — safety model
+
+The runner can only ever test an endpoint the customer controls, and can never be used to reach
+anything else. Every run is gated on all of the following:
+
+1. **Authorisation** — it runs inside an engagement, which already requires an owner/admin to
+   confirm authorisation on the record. Configuring and running are owner/admin only.
+2. **Ownership verification** — the customer must serve a generated token at
+   `https://<target-host>/.well-known/cyberhelp-trust-verification.txt`. A run is allowed only
+   after that check passes, and ownership is **re-checked at run time** (a stale verification
+   blocks the run).
+3. **Egress lockdown** (`src/lib/redteam/ssrf.ts`) — https only; the host must resolve to a
+   public address, re-validated at socket-connect time (closes DNS rebinding); private,
+   loopback, link-local and cloud-metadata addresses are refused; redirects are refused; time
+   and response size are capped; the run has a hard request budget.
+4. **Benign probes only** (`src/lib/redteam/probes.ts`) — canary- and planted-fake-secret
+   checks for prompt injection (direct/indirect/authority), data-protection, output handling and
+   excessive agency, each mapped to an OWASP LLM Top 10 (2025) ID. **No** real harmful or
+   jailbreak payloads ship with it; content-safety red-teaming stays human-designed.
+
+A test-only flag, `REDTEAM_ALLOW_INSECURE_TARGETS=1`, additionally allows a **loopback** target
+so the e2e suite can point the runner at a local mock — it never relaxes the private/metadata
+guards. It defaults off and must never be set in production.
 
 The risk heuristic is CyberHELP's own, not a regulatory formula. MAS's AI risk guidelines were still being finalised
 when this was written; verify the AI governance controls (`src/content/ai-governance.ts`) against the final text.
@@ -193,6 +217,11 @@ Playwright (Python) end-to-end tests:
   Start the app with `ANTHROPIC_API_KEY=test-key ANTHROPIC_BASE_URL=http://localhost:4010`.
 - `tests/e2e_engagements.py` (8 checks): authorisation gate, scope record, checklist, findings with evidence, viewer limits,
   complete → AIG-09 evidence and auditor pack, isolation.
+- `tests/e2e_runner.py` (9 checks): the automated runner against a local mock LLM — ownership
+  verification (fails until the token is served), run disabled until verified, a vulnerable
+  endpoint producing findings, a hardened endpoint clearing them, SSRF refusals (metadata /
+  private / non-https), and owner/admin-only access. Start the app with
+  `REDTEAM_ALLOW_INSECURE_TARGETS=1`.
 - `tests/e2e_ai.py` (14 checks): AI inventory, live and stored risk rating, server-side validation, override with reason,
   re-rating clears stale overrides, review, CSV export with formula guard, AI governance assessment, roles, isolation.
 - `tests/e2e_export.py` (10 checks): auditor pack contents, duplicate file names, formula-injection guard, tamper detection,
@@ -201,7 +230,7 @@ Playwright (Python) end-to-end tests:
   emailed link, forgot-password no-enumeration, reset link single-use, account rename and password change. Start the app
   with `EMAIL_CAPTURE_FILE` (a writable path) and `APP_URL` so the test can read captured mail and follow the links.
 
-87 checks across the seven suites.
+96 checks across the eight suites.
 
 ```bash
 pip install playwright && playwright install chromium
@@ -211,9 +240,11 @@ BASE=http://localhost:3000 UPLOAD_DIR=./uploads python tests/e2e_export.py
 BASE=http://localhost:3000 UPLOAD_DIR=./uploads python tests/e2e_policies.py
 BASE=http://localhost:3000 python tests/e2e_ai.py
 BASE=http://localhost:3000 python tests/e2e_engagements.py
+REDTEAM_ALLOW_INSECURE_TARGETS=1 BASE=http://localhost:3000 python tests/e2e_runner.py
 EMAIL_CAPTURE_FILE=/tmp/mail.jsonl BASE=http://localhost:3000 python tests/e2e_account.py
 ```
 
-Start the server with a matching `EMAIL_CAPTURE_FILE` and `APP_URL` for the account suite, and with
-`ANTHROPIC_API_KEY=test-key ANTHROPIC_BASE_URL=http://localhost:4010` for the policies suite. Sign-up is rate limited to
-10 per hour per IP; restart the server between full runs of all suites.
+Start the server with a matching `EMAIL_CAPTURE_FILE` and `APP_URL` for the account suite, with
+`ANTHROPIC_API_KEY=test-key ANTHROPIC_BASE_URL=http://localhost:4010` for the policies suite, and with
+`REDTEAM_ALLOW_INSECURE_TARGETS=1` for the runner suite (test-only; never set it in production). Sign-up is rate limited
+to 10 per hour per IP; restart the server between full runs of all suites.
