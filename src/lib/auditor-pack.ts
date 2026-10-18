@@ -1,13 +1,12 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { and, asc, eq } from "drizzle-orm";
 import { zipSync, strToU8 } from "fflate";
 import { getDb, schema } from "@/db";
 import { getAssessment } from "./queries";
 import { STATUS_LABEL } from "./score";
 import { toCsv } from "./csv";
+import { getStorage } from "./storage";
 
 const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -77,7 +76,7 @@ export async function buildAuditorPack(tenantId: string, tenantName: string, ass
     .orderBy(asc(schema.auditEvents.createdAt));
 
   const files: Record<string, Uint8Array> = {};
-  const root = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
+  const storage = getStorage();
   const manifest: unknown[][] = [];
   const evidenceByControl = new Map<string, string[]>();
   let integrityFailures = 0;
@@ -90,17 +89,12 @@ export async function buildAuditorPack(tenantId: string, tenantName: string, ass
     used.add(zipPath);
 
     let status = "OK";
-    const full = path.resolve(root, ev.storageKey);
-    if (!full.startsWith(root + path.sep)) {
+    try {
+      const buf = await storage.get(ev.storageKey);
+      if (createHash("sha256").update(buf).digest("hex") !== ev.sha256) status = "INTEGRITY FAILURE";
+      files[zipPath] = new Uint8Array(buf);
+    } catch {
       status = "MISSING";
-    } else {
-      try {
-        const buf = await readFile(full);
-        if (createHash("sha256").update(buf).digest("hex") !== ev.sha256) status = "INTEGRITY FAILURE";
-        files[zipPath] = new Uint8Array(buf);
-      } catch {
-        status = "MISSING";
-      }
     }
     if (status !== "OK") integrityFailures++;
     manifest.push([zipPath, ev.controlId ?? "", ev.sizeBytes, ev.sha256, status, ev.uploader ?? "", ev.createdAt, ev.description ?? ""]);

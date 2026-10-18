@@ -1,7 +1,6 @@
 "use server";
 
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -11,6 +10,7 @@ import { getDb, schema } from "@/db";
 import { SEVERITIES, FINDING_STATUSES } from "@/db/schema";
 import { requireCtx, requireWriter, type Ctx } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { getStorage } from "@/lib/storage";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { assertSafeTarget, TargetRejected } from "@/lib/redteam/ssrf";
 import { verifyOwnership, newVerificationToken } from "@/lib/redteam/verify";
@@ -136,9 +136,7 @@ export async function addFinding(_: EngagementState, form: FormData): Promise<En
     if (file.size > 10 * 1024 * 1024) return { error: "Evidence must be 10 MB or smaller.", values: raw };
     const buf = Buffer.from(await file.arrayBuffer());
     const storageKey = path.posix.join(ctx.tenantId, `${randomUUID()}${ext}`);
-    const root = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
-    await mkdir(path.join(root, ctx.tenantId), { recursive: true });
-    await writeFile(path.join(root, storageKey), buf, { mode: 0o600 });
+    await getStorage().put(storageKey, buf, file.type);
     const [ev] = await db
       .insert(schema.evidence)
       .values({
@@ -220,9 +218,7 @@ export async function completeEngagement(form: FormData) {
   const buf = Buffer.from(report, "utf8");
   const sha256 = createHash("sha256").update(buf).digest("hex");
   const storageKey = path.posix.join(ctx.tenantId, `${randomUUID()}.md`);
-  const root = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
-  await mkdir(path.join(root, ctx.tenantId), { recursive: true });
-  await writeFile(path.join(root, storageKey), buf, { mode: 0o600 });
+  await getStorage().put(storageKey, buf, "text/markdown");
 
   const targets = await db
     .select({ assessmentId: schema.controlResponses.assessmentId })

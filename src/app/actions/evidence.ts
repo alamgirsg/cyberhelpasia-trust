@@ -1,13 +1,13 @@
 "use server";
 
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { requireWriter } from "@/lib/auth";
+import { getStorage } from "@/lib/storage";
 import { audit } from "@/lib/audit";
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -58,9 +58,7 @@ export async function uploadEvidence(_: UploadState, form: FormData): Promise<Up
   const sha256 = createHash("sha256").update(buf).digest("hex");
   // Storage key never uses the client file name, so it cannot be used for path traversal.
   const storageKey = path.posix.join(ctx.tenantId, `${randomUUID()}${ext}`);
-  const root = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
-  await mkdir(path.join(root, ctx.tenantId), { recursive: true });
-  await writeFile(path.join(root, storageKey), buf, { mode: 0o600 });
+  await getStorage().put(storageKey, buf, file.type);
 
   const [row] = await db
     .insert(schema.evidence)

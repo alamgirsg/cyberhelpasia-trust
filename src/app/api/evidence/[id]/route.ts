@@ -1,9 +1,8 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { getCtx } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { getStorage, ObjectNotFound } from "@/lib/storage";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getCtx();
@@ -19,11 +18,13 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     .limit(1);
   if (!ev) return new Response("Not found", { status: 404 });
 
-  const root = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
-  const full = path.resolve(root, ev.storageKey);
-  if (!full.startsWith(root + path.sep)) return new Response("Not found", { status: 404 });
-
-  const data = await readFile(full);
+  let data: Buffer;
+  try {
+    data = await getStorage().get(ev.storageKey);
+  } catch (e) {
+    if (e instanceof ObjectNotFound) return new Response("Not found", { status: 404 });
+    throw e;
+  }
   await audit(ctx.tenantId, ctx.userId, "evidence.downloaded", "evidence", ev.id);
   return new Response(new Uint8Array(data), {
     headers: {

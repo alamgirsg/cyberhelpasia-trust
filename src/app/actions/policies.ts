@@ -1,7 +1,6 @@
 "use server";
 
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -10,6 +9,7 @@ import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { requireCtx, requireWriter, type Ctx } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { getStorage } from "@/lib/storage";
 import { rateLimit } from "@/lib/ratelimit";
 import { policyById } from "@/content/policies";
 import { generateDraft } from "@/lib/policy-ai";
@@ -147,9 +147,7 @@ export async function approvePolicy(form: FormData) {
   const buf = Buffer.from(approvedText, "utf8");
   const sha256 = createHash("sha256").update(buf).digest("hex");
   const storageKey = path.posix.join(ctx.tenantId, `${randomUUID()}.md`);
-  const root = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
-  await mkdir(path.join(root, ctx.tenantId), { recursive: true });
-  await writeFile(path.join(root, storageKey), buf, { mode: 0o600 });
+  await getStorage().put(storageKey, buf, "text/markdown");
 
   // Controls this policy supports, in the assessments this workspace actually has.
   const targets = def?.controls.length

@@ -24,6 +24,7 @@ One platform, two modules, built for the Singapore market:
 | Gap assessment: status + notes per control, guidance and evidence hints | ✅ |
 | Automatic remediation: gaps create tasks (priority + due date); fixing a control closes them | ✅ |
 | Evidence vault: type allowlist, 10 MB limit, SHA-256 hash, tenant-checked download | ✅ |
+| Evidence storage on local disk (default) or an S3-compatible bucket (AWS S3, R2, B2, MinIO) — e.g. AWS `ap-southeast-1` for Singapore data residency | ✅ |
 | Readiness score overall and by domain; dashboard shows weakest domains | ✅ |
 | Printable readiness report (save as PDF from the browser) | ✅ |
 | Auditor pack ZIP: report, controls/tasks/activity CSVs, evidence by control, SHA-256 manifest with tamper check | ✅ |
@@ -233,10 +234,10 @@ folder off the box (or to object storage) so a host failure can't take the backu
 
 ## Next steps
 
-1. PostgreSQL row-level security as a second isolation layer
-2. S3-compatible evidence storage (Singapore region)
-3. Shared rate-limit store (Redis) for multi-instance deployments
-4. Off-site backup shipping (the local routine above is in place)
+1. PostgreSQL row-level security as a second isolation layer (needs a request-scoped tenant GUC)
+2. Shared rate-limit store (Redis) for multi-instance deployments
+3. Off-site backup shipping (the local routine above is in place)
+4. Billing and plans
 
 ## Tests
 
@@ -268,7 +269,11 @@ Playwright (Python) end-to-end tests:
   first sign-in sets the baseline silently), and password change, two-step turn-off and password
   reset each alert the owner. Start the app with `EMAIL_CAPTURE_FILE` and `APP_URL`.
 
-101 checks across the nine suites.
+- `tests/e2e_storage.py` (3 checks): runs a mock S3 endpoint and checks that evidence uploads write
+  the exact bytes to the bucket, the auditor pack reads them back with integrity verified, and direct
+  download streams from the bucket. Start the app with `STORAGE_DRIVER=s3` and the `S3_*` vars.
+
+104 checks across the ten suites.
 
 ```bash
 pip install playwright && playwright install chromium
@@ -281,6 +286,7 @@ BASE=http://localhost:3000 python tests/e2e_engagements.py
 REDTEAM_ALLOW_INSECURE_TARGETS=1 BASE=http://localhost:3000 python tests/e2e_runner.py
 EMAIL_CAPTURE_FILE=/tmp/mail.jsonl BASE=http://localhost:3000 python tests/e2e_account.py
 EMAIL_CAPTURE_FILE=/tmp/mail.jsonl BASE=http://localhost:3000 python tests/e2e_alerts.py
+S3_MOCK_PORT=4570 BASE=http://localhost:3000 python tests/e2e_storage.py
 ```
 
 Start the server with a matching `EMAIL_CAPTURE_FILE` and `APP_URL` for the account suite, with
