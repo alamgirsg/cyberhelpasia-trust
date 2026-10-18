@@ -93,6 +93,18 @@ npm run dev               # http://localhost:3000
 
 With `DATABASE_URL` empty the app uses an embedded PGlite database in `./.data` (development only).
 
+### Demo workspace
+
+```bash
+npm run db:demo
+```
+
+Spins up a fully-populated demo tenant ("Marina Bay Diagnostics Pte Ltd") for a live sales walk-through:
+a Cyber Trust assessment with a realistic spread of answers and remediation tasks, evidence, an approved
+policy, three AI systems (low/medium/high), an AI governance assessment, and a completed red-team
+engagement with findings. Re-running resets it, so the printed login (`demo@cyberhelpasia.com`) always
+works. It only touches the demo tenant.
+
 ### Environment variables
 
 | Variable | Purpose |
