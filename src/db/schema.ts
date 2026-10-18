@@ -35,6 +35,9 @@ export const users = pgTable(
     mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true }),
     /** Last accepted TOTP time-step, to block code replay. */
     mfaLastStep: integer("mfa_last_step"),
+    /** Last sign-in IP + time, to detect a sign-in from a new location. */
+    lastLoginIp: text("last_login_ip"),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("users_email_uq").on(t.email)],

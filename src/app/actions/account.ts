@@ -7,6 +7,7 @@ import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { requireCtx } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { sendSecurityAlert } from "@/lib/email";
 
 export type AccountState = { error?: string; ok?: string } | undefined;
 
@@ -32,5 +33,6 @@ export async function changePassword(_: AccountState, form: FormData): Promise<A
   if (await bcrypt.compare(next, u.passwordHash)) return { error: "The new password must be different." };
   await db.update(schema.users).set({ passwordHash: await bcrypt.hash(next, 12) }).where(eq(schema.users.id, ctx.userId));
   await audit(ctx.tenantId, ctx.userId, "user.password_changed", "user", ctx.userId);
+  await sendSecurityAlert(ctx.userEmail, "password_changed");
   return { ok: "Password changed." };
 }

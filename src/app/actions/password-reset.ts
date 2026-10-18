@@ -8,7 +8,7 @@ import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { randomToken, sha256 } from "@/lib/crypto";
 import { rateLimit } from "@/lib/ratelimit";
-import { appUrl, resetEmail, sendEmail } from "@/lib/email";
+import { appUrl, resetEmail, sendEmail, sendSecurityAlert } from "@/lib/email";
 import { audit } from "@/lib/audit";
 import { SESSION_COOKIE } from "@/lib/session";
 import { anyTenant, findReset } from "@/lib/password-reset";
@@ -60,6 +60,8 @@ export async function completeReset(_: ResetState, form: FormData): Promise<Rese
   await db.update(schema.users).set({ passwordHash: await bcrypt.hash(password, 12) }).where(eq(schema.users.id, reset.userId));
   const tenantId = await anyTenant(reset.userId);
   if (tenantId) await audit(tenantId, reset.userId, "user.password_reset", "user", reset.userId);
+  const [who] = await db.select({ email: schema.users.email }).from(schema.users).where(eq(schema.users.id, reset.userId)).limit(1);
+  if (who) await sendSecurityAlert(who.email, "password_reset");
   // Do not auto-sign-in: if MFA is on, the login flow must still ask for it.
   (await cookies()).delete(SESSION_COOKIE);
   redirect("/login?reset=1");

@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { requireCtx } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { sendSecurityAlert } from "@/lib/email";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { checkSecondFactor, hashRecovery, newRecoveryCodes } from "@/lib/mfa";
 import { newSecret, verify } from "@/lib/totp";
@@ -58,6 +59,7 @@ export async function disableMfa(_: MfaState, form: FormData): Promise<MfaState>
     await tx.delete(schema.mfaRecoveryCodes).where(eq(schema.mfaRecoveryCodes.userId, u.id));
   });
   await audit(ctx.tenantId, u.id, "user.mfa_disabled", "user", u.id);
+  await sendSecurityAlert(ctx.userEmail, "mfa_disabled");
   revalidatePath("/app/settings/security");
   return { done: "Two-step verification is off." };
 }

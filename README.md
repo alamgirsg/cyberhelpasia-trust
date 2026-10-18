@@ -16,6 +16,7 @@ One platform, two modules, built for the Singapore market:
 | Team invites by single-use link (7-day expiry), role changes, member removal, last-owner protection | ✅ |
 | Invite and password-reset emails sent over SMTP when configured (otherwise the link is shown to copy) | ✅ |
 | Self-serve password reset by emailed single-use link (1-hour expiry); no account enumeration | ✅ |
+| Security-alert emails to the account holder: sign-in from a new IP, two-step turned off, password changed or reset | ✅ |
 | Account settings: change display name and password (current password required) | ✅ |
 | Users in several workspaces, with a workspace switcher | ✅ |
 | Risk-profile wizard that recommends Cyber Essentials or Cyber Trust (with reasons, overridable) | ✅ |
@@ -208,13 +209,34 @@ scripts/                    migrate + seed
   Anthropic processes draft-form inputs.
 - Evidence files are stored under random names (never the client file name) with mode 0600.
 - Security headers: X-Frame-Options DENY, nosniff, strict referrer policy.
+- Security-alert emails go to the account holder on a sign-in from a new IP, two-step being turned
+  off, or a password change/reset — best-effort (quiet no-op if email isn't configured, and never
+  blocking the action). The first sign-in sets the IP baseline silently.
+
+## Backups
+
+`scripts/backup.sh` takes a timestamped, gzipped `pg_dump` of the database (reached inside the `db`
+container, which is never exposed off the Docker network) and keeps the newest `RETAIN` (default 14).
+
+```bash
+./scripts/backup.sh                 # writes backups/trust-YYYYMMDD-HHMMSS.sql.gz
+# restore one:
+gunzip -c backups/trust-YYYYMMDD-HHMMSS.sql.gz | docker compose exec -T db psql -U trust -d trust
+```
+
+Schedule it daily with cron on the VPS (run from the project directory), and copy the `backups/`
+folder off the box (or to object storage) so a host failure can't take the backups with it:
+
+```cron
+30 2 * * * cd /path/to/cyberhelpasia-trust && ./scripts/backup.sh >> backups/backup.log 2>&1
+```
 
 ## Next steps
 
 1. PostgreSQL row-level security as a second isolation layer
 2. S3-compatible evidence storage (Singapore region)
 3. Shared rate-limit store (Redis) for multi-instance deployments
-4. Security-alert emails (new sign-in, MFA disabled)
+4. Off-site backup shipping (the local routine above is in place)
 
 ## Tests
 
@@ -242,7 +264,11 @@ Playwright (Python) end-to-end tests:
   emailed link, forgot-password no-enumeration, reset link single-use, account rename and password change. Start the app
   with `EMAIL_CAPTURE_FILE` (a writable path) and `APP_URL` so the test can read captured mail and follow the links.
 
-96 checks across the eight suites.
+- `tests/e2e_alerts.py` (5 checks): security-alert emails — a sign-in from a new IP alerts (and the
+  first sign-in sets the baseline silently), and password change, two-step turn-off and password
+  reset each alert the owner. Start the app with `EMAIL_CAPTURE_FILE` and `APP_URL`.
+
+101 checks across the nine suites.
 
 ```bash
 pip install playwright && playwright install chromium
@@ -254,6 +280,7 @@ BASE=http://localhost:3000 python tests/e2e_ai.py
 BASE=http://localhost:3000 python tests/e2e_engagements.py
 REDTEAM_ALLOW_INSECURE_TARGETS=1 BASE=http://localhost:3000 python tests/e2e_runner.py
 EMAIL_CAPTURE_FILE=/tmp/mail.jsonl BASE=http://localhost:3000 python tests/e2e_account.py
+EMAIL_CAPTURE_FILE=/tmp/mail.jsonl BASE=http://localhost:3000 python tests/e2e_alerts.py
 ```
 
 Start the server with a matching `EMAIL_CAPTURE_FILE` and `APP_URL` for the account suite, with

@@ -68,6 +68,32 @@ export function inviteEmail(tenantName: string, role: string, link: string): { s
   };
 }
 
+export type SecurityEvent = "new_signin" | "mfa_disabled" | "password_changed" | "password_reset";
+
+/**
+ * Notify the account holder of a sensitive security event. Best-effort: if email isn't
+ * configured it's a quiet no-op, and failures never block the action that triggered it.
+ */
+export async function sendSecurityAlert(to: string, event: SecurityEvent, details: { ip?: string; when?: Date } = {}): Promise<{ sent: boolean }> {
+  const when = (details.when ?? new Date()).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+  const body: Record<SecurityEvent, { subject: string; lead: string[] }> = {
+    new_signin: { subject: "New sign-in to your CyberHELP Asia Trust account", lead: ["A new sign-in to your account was detected.", `When: ${when}`, details.ip ? `From IP: ${details.ip}` : ""] },
+    mfa_disabled: { subject: "Two-step verification was turned off", lead: ["Two-step verification was turned off on your account.", `When: ${when}`] },
+    password_changed: { subject: "Your CyberHELP Asia Trust password was changed", lead: ["Your account password was changed.", `When: ${when}`] },
+    password_reset: { subject: "Your CyberHELP Asia Trust password was reset", lead: ["Your password was reset using a reset link.", `When: ${when}`] },
+  };
+  const m = body[event];
+  try {
+    return await sendEmail({
+      to,
+      subject: m.subject,
+      text: [...m.lead.filter(Boolean), "", "If this wasn't you, reset your password now and turn on two-step verification:", `${appUrl()}/forgot`, "", "— CyberHELP Asia Trust"].join("\n"),
+    });
+  } catch {
+    return { sent: false };
+  }
+}
+
 export function resetEmail(link: string): { subject: string; text: string } {
   return {
     subject: "Reset your CyberHELP Asia Trust password",

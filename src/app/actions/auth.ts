@@ -16,6 +16,7 @@ import {
   verifyMfaPending,
 } from "@/lib/session";
 import { audit } from "@/lib/audit";
+import { sendSecurityAlert } from "@/lib/email";
 import { rateLimit, resetLimit } from "@/lib/ratelimit";
 import { checkSecondFactor } from "@/lib/mfa";
 
@@ -29,6 +30,16 @@ function keep(form: FormData, fields: string[]) {
 async function clientIp(): Promise<string> {
   const h = await headers();
   return (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "local").trim();
+}
+
+/**
+ * Record a successful sign-in and, if it came from a different IP than last time, email the
+ * account holder. The first-ever sign-in sets the baseline silently (no alert).
+ */
+async function noteSignIn(u: { id: string; email: string; lastLoginIp: string | null }, ip: string) {
+  const db = await getDb();
+  if (u.lastLoginIp && u.lastLoginIp !== ip) await sendSecurityAlert(u.email, "new_signin", { ip });
+  await db.update(schema.users).set({ lastLoginIp: ip, lastLoginAt: new Date() }).where(eq(schema.users.id, u.id));
 }
 
 const signupSchema = z.object({
@@ -83,8 +94,9 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
   if (!parsed.success) return { error: "Enter your email and password.", values };
 
   // 5 attempts per email per 15 minutes, and 30 per IP.
+  const ip = await clientIp();
   const byEmail = rateLimit(`login:${parsed.data.email}`, 5, 15 * 60 * 1000);
-  const byIp = rateLimit(`login-ip:${await clientIp()}`, 30, 15 * 60 * 1000);
+  const byIp = rateLimit(`login-ip:${ip}`, 30, 15 * 60 * 1000);
   if (!byEmail.ok || !byIp.ok) {
     return { error: `Too many attempts. Try again in ${Math.ceil(Math.max(byEmail.retryInSec, byIp.retryInSec) / 60)} minutes.`, values };
   }
@@ -104,6 +116,7 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
     jar.set(MFA_PENDING_COOKIE, await signMfaPending({ uid: u.id, tid: m.tenantId }), mfaPendingCookieOptions);
     redirect("/login/mfa");
   }
+  await noteSignIn(u, ip);
   await audit(m.tenantId, u.id, "user.login", "user", u.id, { mfa: false });
   jar.set(SESSION_COOKIE, await signSession({ uid: u.id, tid: m.tenantId }), sessionCookieOptions);
   redirect("/app");
@@ -127,6 +140,7 @@ export async function verifyMfaLogin(_: FormState, form: FormData): Promise<Form
     return { error: "That code is not valid. Use the current code from your app, or a recovery code." };
   }
   resetLimit(`mfa:${pending.uid}`);
+  await noteSignIn(u, await clientIp());
   jar.delete(MFA_PENDING_COOKIE);
   jar.set(SESSION_COOKIE, await signSession(pending), sessionCookieOptions);
   await audit(pending.tid, u.id, "user.login", "user", u.id, { mfa: method });
